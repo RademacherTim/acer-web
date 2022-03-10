@@ -8,17 +8,18 @@
 # Define UI for application that draws a histogram
 shinyUI(fluidPage(
 
-    # Application title
+    # Application title --------------------------------------------------------
     titlePanel("Acer web"),
 
     tabsetPanel(
         br (), # insert some space
         
-        # Home tab
+        # Home tab -------------------------------------------------------------
         tabPanel("Acceuil", fluid = TRUE,
                  includeMarkdown("acceuil.md") 
         ),
-        # Data entry tab
+        
+        # Data entry tab -------------------------------------------------------
         tabPanel("Saisie de données", fluid = TRUE,
             sidebarLayout(
                 sidebarPanel(
@@ -106,11 +107,22 @@ shinyUI(fluidPage(
                                   inline = TRUE)
                     ),
 
-                # Show a plot of the past data from the site with a line for each tree
+                # TR - change the below for a table of the entered data
                 mainPanel(
-                    plotOutput("distPlot")
+                    #plotOutput("plotVolume"),
+                    #plotOutput("plotBRIX")
                 )
-            ))
+            ),
+            
+            # Plot tab ---------------------------------------------------------
+            tabPanel("Graphiques", 
+                mainPanel(
+                    # make plots of sap volume and BRIX over time --------------
+                    plotOutput("plotVolume"),
+                    plotOutput("plotBRIX")
+                )
+            )
+        )
     )
 ))
 #===============================================================================

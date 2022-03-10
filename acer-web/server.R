@@ -16,35 +16,41 @@ sheet_url <- "https://docs.google.com/spreadsheets/d/1Iup_x-uyfN-vk9oK7bQVfSP7Xr
 # define server logic required to draw plots -----------------------------------
 shinyServer(function(input, output) {
 
-    # authenthicate for spreadsheet and load the data from the acer-web sheet --
-    gs4_auth(cache = ".secrets", email = "rademacher.tim@gmail.com")
-    
-    # get data from online sheet -----------------------------------------------
-    sap_data  <- read_sheet (ss = sheet_url, sheet = "01_sap_data",  na = "NA",
-                             col_types = "ciDcldddddddlc")
-    met_data  <- read_sheet (ss = sheet_url, sheet = "02_met_data",  na = "NA",
-                             col_types = "")
-    tree_data <- read_sheet (ss = sheet_url, sheet = "03_tree_data", na = "NA",
-                             col_types = "")
-    site_data <- read_sheet (ss = sheet_url, sheet = "04_site_data", na = "NA",
-                             col_types = "")
-    
-    # filter data for the site under consideration -----------------------------
-    sap_data <- sap_data %>% filter(site == input$site)
-    met_data <- met_data %>% filter(site == input$site)
-    tree_data <- tree_data %>% filter(site == input$site)
-    site_data <- site_data %>% filter(site == input$site)
-    
-    # create datetime column ---------------------------------------------------
-    sap_data <- sap_data %>% 
-        mutate(datetime = as_datetime (paste(date, time), 
-                                       format = "%Y-%m-%d %H:%M", tz = "EST"))
-    
-    # calculate mean sap BRIX --------------------------------------------------
-    sap_data <- sap_data %>% 
-        mutate(sap_brix = rowMeans(select(., sap_brix_1, sap_brix_2, sap_brix_3), 
-                                   na.rm = TRUE))
+    load_data <- reactive (
+        # authenthicate for spreadsheet and load the data from the acer-web sheet 
+        gs4_auth(cache = ".secrets", email = "rademacher.tim@gmail.com")
         
+        # get data from online sheet --------------------------------------------
+        sap_data  <- read_sheet (ss = sheet_url, sheet = "01_sap_data",  
+                                 na = "NA",
+                                 col_types = "ciDcldddddddlc")
+        met_data  <- read_sheet (ss = sheet_url, sheet = "02_met_data",  
+                                 na = "NA",
+                                 col_types = "cDlccdddcc")
+        tree_data <- read_sheet (ss = sheet_url, sheet = "03_tree_data", 
+                                 na = "NA",
+                                 col_types = "cicddddddd")
+        site_data <- read_sheet (ss = sheet_url, sheet = "04_site_data", 
+                                 na = "NA",
+                                 col_types = "cdddDci")
+        
+        # filter data for the site under consideration -------------------------
+        sap_data <- sap_data %>% filter(site == input$site)
+        met_data <- met_data %>% filter(site == input$site)
+        tree_data <- tree_data %>% filter(site == input$site)
+        site_data <- site_data %>% filter(site == input$site)
+        
+        # create datetime column ---------------------------------------------------
+        sap_data <- sap_data %>% 
+            mutate(datetime = as_datetime (paste(date, time), 
+                                           format = "%Y-%m-%d %H:%M", tz = "EST"))
+        
+        # calculate mean sap BRIX --------------------------------------------------
+        sap_data <- sap_data %>% 
+            mutate(sap_brix = rowMeans(select(., sap_brix_1, sap_brix_2, sap_brix_3), 
+                                       na.rm = TRUE))
+    )
+    
     # create function to sap volume data ---------------------------------------
     output$plotVolume <- renderPlot({
         
@@ -52,7 +58,7 @@ shinyServer(function(input, output) {
         n_trees <- max (sap_data$tree, na.rm = TRUE)
         
         # create colour plalette for the trees ---------------------------------
-        col_palette <- brewer.pal(n = max(n_trees, 12), name = "Set3")
+        col_palette <- brewer.pal(n = min(n_trees, 12), name = "Set3")
         
         # draw scatter plot for data over time ---------------------------------
         par(mar = c(5, 5, 1, 1))
