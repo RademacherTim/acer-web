@@ -9,14 +9,18 @@ library("shiny")
 library("shinyTime") # to input times
 library("googlesheets4") # to interact with data spreadsheet
 library ("RColorBrewer") # to get colour palettes for plotting
+library ("tidyverse") # to wrangle data 
 library ("lubridate") # to transform dates and times 
 
 sheet_url <- "https://docs.google.com/spreadsheets/d/1Iup_x-uyfN-vk9oK7bQVfSP7XrihXAtJRVygnFNazig/edit#gid=66834274"
 
-# define server logic required to draw plots -----------------------------------
+# define server logic required to process data and draw plots ------------------
 shinyServer(function(input, output) {
 
-    load_data <- reactive (
+    # print initial log message on start-up ------------------------------------
+    print_log(INIT = TRUE)
+    
+    load_sap_data <- reactive ({
         # authenthicate for spreadsheet and load the data from the acer-web sheet 
         gs4_auth(cache = ".secrets", email = "rademacher.tim@gmail.com")
         
@@ -24,21 +28,21 @@ shinyServer(function(input, output) {
         sap_data  <- read_sheet (ss = sheet_url, sheet = "01_sap_data",  
                                  na = "NA",
                                  col_types = "ciDcldddddddlc")
-        met_data  <- read_sheet (ss = sheet_url, sheet = "02_met_data",  
-                                 na = "NA",
-                                 col_types = "cDlccdddcc")
-        tree_data <- read_sheet (ss = sheet_url, sheet = "03_tree_data", 
-                                 na = "NA",
-                                 col_types = "cicddddddd")
-        site_data <- read_sheet (ss = sheet_url, sheet = "04_site_data", 
-                                 na = "NA",
-                                 col_types = "cdddDci")
+        # met_data  <- read_sheet (ss = sheet_url, sheet = "02_met_data",  
+        #                          na = "NA",
+        #                          col_types = "cDlccdddcc")
+        # tree_data <- read_sheet (ss = sheet_url, sheet = "03_tree_data", 
+        #                          na = "NA",
+        #                          col_types = "cicddddddd")
+        # site_data <- read_sheet (ss = sheet_url, sheet = "04_site_data", 
+        #                          na = "NA",
+        #                          col_types = "cdddDci")
         
         # filter data for the site under consideration -------------------------
         sap_data <- sap_data %>% filter(site == input$site)
-        met_data <- met_data %>% filter(site == input$site)
-        tree_data <- tree_data %>% filter(site == input$site)
-        site_data <- site_data %>% filter(site == input$site)
+        # met_data <- met_data %>% filter(site == input$site)
+        # tree_data <- tree_data %>% filter(site == input$site)
+        # site_data <- site_data %>% filter(site == input$site)
         
         # create datetime column ---------------------------------------------------
         sap_data <- sap_data %>% 
@@ -49,10 +53,16 @@ shinyServer(function(input, output) {
         sap_data <- sap_data %>% 
             mutate(sap_brix = rowMeans(select(., sap_brix_1, sap_brix_2, sap_brix_3), 
                                        na.rm = TRUE))
-    )
+    }),
     
     # create function to sap volume data ---------------------------------------
     output$plotVolume <- renderPlot({
+        
+        # print log ------------------------------------------------------------
+        print_log("poutput$plotVolume")
+        
+        # load data ------------------------------------------------------------
+        sap_data <- load_sap_data()
         
         # get the number of trees ----------------------------------------------
         n_trees <- max (sap_data$tree, na.rm = TRUE)
@@ -85,7 +95,7 @@ shinyServer(function(input, output) {
                    lwd = 2)
             })
 
-    })
+    }),
     
     # create function to plot sap sugar content --------------------------------
     # maybe change this for a histogram eventually
