@@ -16,7 +16,7 @@ all_years <- sap_data %>% mutate (year = as.character(year)) %>%
 colours <- brewer.pal (8, "Set3")
 
 # set opacity for plot symbols -------------------------------------------------
-opa <- 0.9
+opa <- 1.0
 
 # function to select different symbols for different sites ---------------------
 site.symbol <- function(s){
@@ -77,7 +77,7 @@ for (s in unique(sap_data$site)){
     points(x = d %>% select(mean_dbh) %>% unlist(),
            y = d %>% select(total_volume) %>% unlist(),
            pch = site.symbol(s),
-           bg = add.alpha(colours[which(all_years == y)], opa + 0.1), 
+           bg = add.alpha(colours[which(all_years == y)], opa), 
            col = add.alpha(colours[which(all_years == y)], opa))
   }
 }
@@ -87,10 +87,10 @@ legend(x = 0, y = 200, legend = c("L'Assomption", "Montréal", "Harvard Forest",
                                   "Divide Ridge", "Indiana Dunes")[1:3], 
        pch = site.symbol(unique(sap_data$site))[1:3], box.lty = 0)
 legend(x = 0, y = 150, legend = all_years[c(1,5,6,8)], lwd = 2, 
-       col = add.alpha(colours[c(1,5,6,8)], opa + 0.1), box.lty = 0)
+       col = add.alpha(colours[c(1,5,6,8)], opa), box.lty = 0)
 
 # fit linear model to sap_volume over dbh relationship -------------------------
-l_mod0 <- lm(total_volume ~ mean_dbh, data = HF_data %>% 
+l_mod0 <- lm(total_volume ~ mean_dbh, data = sap_data %>% 
      filter (sap_volume >= 100) %>% 
      group_by(tree, tap, year) %>% 
      summarise(total_volume = sum(sap_volume, na.rm = TRUE) / 1e3, 
@@ -98,6 +98,18 @@ l_mod0 <- lm(total_volume ~ mean_dbh, data = HF_data %>%
                .groups = "keep"))
 abline(l_mod0, col = "#666666", lty = 2, lwd = 2)
 summary(l_mod0)
+mod1 <- brms::brm(brms::bf(total_volume ~ s(mean_dbh)),
+                  data = sap_data %>% 
+                    filter (sap_volume >= 100) %>% 
+                    group_by(tree, tap, year) %>% 
+                    summarise(total_volume = sum(sap_volume, na.rm = TRUE) / 1e3, 
+                              mean_dbh = mean(dbh, na.rm = TRUE),
+                              .groups = "keep"),
+                  family = gaussian(), 
+                  iter = 4000,
+                  prior = brms::prior(normal(1000, 500, 500), coef = s(mean_dbh)))
+brms::prior_summary(mod1)
+pairs(mod1)
 # per cm you gain about a liter over the season 
 
 # plot size against sap brix content -------------------------------------------

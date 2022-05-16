@@ -38,7 +38,9 @@ AW_data_t <- AW_data_t %>%
          tree = factor(tree),
          site = factor(site),
          tap = factor(tap),
-         dbh = cbh / pi)
+         dbh = cbh / pi,
+         tap.bearing = o_tap,
+         tap.height = h_tap_ground)
 
 # calculate mean sap succrose concentration (°Brix) ----------------------------
 AW_data_s <- AW_data_s %>% 
@@ -87,7 +89,7 @@ HF_data <- left_join(HF_data_s, HF_data_t, by = c("tree","tap","year")) %>%
 sap_data <- full_join(AW_data, HF_data,
                       by = c("site", "datetime", "date", "year", "doy", "time",  
                              "tree", "tap", "spp", "sap_volume", "sap_brix",
-                             "dbh")) 
+                             "dbh", "tap.height", "tap.bearing")) 
 
 # read AcerNet data ------------------------------------------------------------
 # N.B.: This data does not include tree sizes or any metadata. It is only sap 
@@ -130,5 +132,15 @@ sap_data <- sap_data %>%
          !(site == "1" & date == as_date("2022-04-18") & tree %in% c(15, 16, 27)),
          !(site == "1" & date == as_date("2022-04-19") & tree %in% c(1:3, 5:8, 14, 25, 32, 33)),
          !(site == "1" & date == as_date("2022-04-30") & tree %in% c(15)))
+
+# plot histogram of sap volume and sap brix at Harvard Forest ------------------
+par(mar = c(5, 5, 1, 1))
+hist(sap_data %>% filter(site == "HF") %>% select(sap_volume) %>% unlist(),
+     xlab = "Sap volume (ml)", main = "", col = "#CC724066")
+hist(sap_data %>% filter(site == "HF") %>% select(sap_brix) %>% unlist(), 
+     breaks = seq(0, 25, by = 0.2), xlim = c(0, 8), col = "#CC724066",
+     xlab = expression(paste("Sap succrose concentration (",degree,"Brix)", sep = "")),
+     main = "", lty = 1)
+abline(v = median(sap_data$sap_brix, na.rm = TRUE), col = "#94452E", lwd = 2)
 
 #===============================================================================
