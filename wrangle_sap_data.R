@@ -20,9 +20,17 @@ AW_data_s <- read_sheet (ss = sheet_url, sheet = "01_sap_data",
                          col_types = "cccDcldddddddlc")
 AW_data_t <- read_sheet (ss = sheet_url, sheet = "05_tree_data",  
                          na = "NA",
-                         col_types = "iccciccddddddddd")
+                         col_types = "iccciccddddddddddd")
+AW_site_data <- read_sheet (ss = sheet_url, sheet = "06_site_data",  
+                            na = "NA",
+                            col_types = "ccdddDcDi")
+
 # filter data for the site under consideration ---------------------------------
 #AW_data <- AW_data %>% filter(site == "1")
+
+# add tapping date and tap removal date ----------------------------------------
+AW_data_s <- left_join(AW_data_s, AW_site_data, by = c("site")) %>% 
+  select(-site_name, -n_trees)
 
 # create datetime column, convert time column, and add year as factor ----------
 AW_data_s <- AW_data_s %>% 
@@ -79,6 +87,13 @@ HF_data_s <- HF_data_s %>%
          sap_brix = sugar) %>%
   select(-sap.wt,-sugar)
 
+# add a column with number of taps ---------------------------------------------
+HF_data_t <- HF_data_t %>% group_by(tree, year) %>% mutate(n_taps = case_when(
+  "C" %in% tap ~ 3,
+  "B" %in% tap ~ 2,
+  "A" %in% tap ~ 1,
+)) %>% ungroup()
+
 # combine the two data sets ----------------------------------------------------
 HF_data <- left_join(HF_data_s, HF_data_t, by = c("tree","tap","year")) %>% 
   select(-date.y, -species.y) %>% # 
@@ -88,8 +103,8 @@ HF_data <- left_join(HF_data_s, HF_data_t, by = c("tree","tap","year")) %>%
 # compile different data sets---------------------------------------------------
 sap_data <- full_join(AW_data, HF_data,
                       by = c("site", "datetime", "date", "year", "doy", "time",  
-                             "tree", "tap", "spp", "sap_volume", "sap_brix",
-                             "dbh", "tap.height", "tap.bearing")) 
+                             "tree", "tap", "n_taps", "spp", "sap_volume", 
+                             "sap_brix","dbh", "tap.height", "tap.bearing")) 
 
 # read AcerNet data ------------------------------------------------------------
 # N.B.: This data does not include tree sizes or any metadata. It is only sap 
@@ -114,11 +129,18 @@ AN_data <- AN_data %>% filter(site != "HF")
 # add datetime, time, and dbh columns ------------------------------------------
 AN_data <- AN_data %>% add_column(datetime = NA, time = NA, dbh = NA)
 
+# add column with number of taps -----------------------------------------------
+AN_data <- AN_data %>% group_by(tree, year) %>% mutate(n_taps = case_when(
+  "C" %in% tap ~ 3,
+  "B" %in% tap ~ 2,
+  "A" %in% tap ~ 1,
+)) %>% ungroup()
+
 # compile different data sets---------------------------------------------------
 sap_data <- full_join(sap_data, AN_data,
                       by = c("site", "datetime", "date", "year", "doy", "time",  
-                             "tree", "tap", "spp", "sap_volume", "sap_brix",
-                             "dbh")) 
+                             "tree", "tap", "n_taps", "spp", "sap_volume", 
+                             "sap_brix","dbh")) 
 
 # remove outliers on 2022-03-12 due to most sap being frozen and 2022-03-14, as 
 # there was only very little sap (i.e., 50 or 100 ml with one tree at 300 ml) --
@@ -134,13 +156,15 @@ sap_data <- sap_data %>%
          !(site == "1" & date == as_date("2022-04-30") & tree %in% c(15)))
 
 # plot histogram of sap volume and sap brix at Harvard Forest ------------------
-par(mar = c(5, 5, 1, 1))
-hist(sap_data %>% filter(site == "HF") %>% select(sap_volume) %>% unlist(),
-     xlab = "Sap volume (ml)", main = "", col = "#CC724066")
-hist(sap_data %>% filter(site == "HF") %>% select(sap_brix) %>% unlist(), 
-     breaks = seq(0, 25, by = 0.2), xlim = c(0, 8), col = "#CC724066",
-     xlab = expression(paste("Sap succrose concentration (",degree,"Brix)", sep = "")),
-     main = "", lty = 1)
-abline(v = median(sap_data$sap_brix, na.rm = TRUE), col = "#94452E", lwd = 2)
-
+PLOT <- FALSE
+if(PLOT){
+  par(mar = c(5, 5, 1, 1))
+  hist(sap_data %>% filter(site == "HF") %>% select(sap_volume) %>% unlist(),
+       xlab = "Sap volume (ml)", main = "", col = "#CC724066")
+  hist(sap_data %>% filter(site == "HF") %>% select(sap_brix) %>% unlist(), 
+       breaks = seq(0, 25, by = 0.2), xlim = c(0, 8), col = "#CC724066",
+       xlab = expression(paste("Sap succrose concentration (",degree,"Brix)", sep = "")),
+       main = "", lty = 1)
+  abline(v = median(sap_data$sap_brix, na.rm = TRUE), col = "#94452E", lwd = 2)
+}
 #===============================================================================

@@ -1,3 +1,5 @@
+colours <- brewer.pal (8, "Set3")
+
 # plot succrose concentration (°Brix) over time at l'Assomption ----------------
 par(mar = c(3, 5, 1, 1))
 plot (x = sap_data %>% filter (sap_volume >= 100 & site == "1") %>% 
@@ -111,8 +113,6 @@ polygon(x = c(55:125,125:55),
 abline(a = a, b = b, col = "#94452E", lwd = 2, lty = 2)
 
 # plot succrose contentration over time at Harvard Forest for various years ----
-colours <- c ("#8dd3c799","#ffffb399","#bebada99","#fb807299","#80b1d399",
-              "#fdb46299")
 plot(x = sap_data %>% 
        filter(sap_volume >= 100 & site == "HF" & year == 2012) %>% 
        group_by(doy) %>%
@@ -125,7 +125,7 @@ plot(x = sap_data %>%
      xlab = "", 
      ylab = expression(paste("Sap succrose concentration (",degree,"Brix)", sep = "")), 
      axes = FALSE, xlim = c(yday(as_date("2022-01-28")), yday(as_date("2022-05-01"))), 
-     ylim = c(0, 6), pch = 19, 
+     ylim = c(0, 5), pch = 19, 
      # cex = sap_data %>% 
      #   filter(!is.nan(sap_brix) & sap_volume >= 100 & site == "HF" & year == 2012) %>% 
      #   group_by(doy) %>% tally() %>% select (n) %>% mutate(n = n/2) %>%
@@ -133,26 +133,46 @@ plot(x = sap_data %>%
      col = "white")
 axis(side = 1, at = yday(as_date(c("2022-02-01","2022-03-01","2022-04-01","2022-05-01"))), 
      labels = c("February","March","April","May"))
-axis(side = 2, las = 1, at = seq(0, 6, by = 2))
-for (y in 2012:2018) {
-  points(x = sap_data %>% 
-           filter(sap_volume >= 100 & site == "HF" & year == y) %>% 
-           group_by(doy) %>%
-           group_keys() %>% unlist(),
-         y = sap_data %>% 
-           filter(sap_volume >= 100 & site == "HF" & year == y) %>% 
-           group_by(doy) %>%
-           summarise(mean_brix = mean(sap_brix, na.rm = TRUE)) %>% 
-           select(mean_brix) %>% unlist(),
-         pch = 19, 
-         # cex = sap_data %>% 
-         #   filter(!is.nan(sap_brix) & sap_volume >= 100 & site == "HF" & year == y) %>% 
-         #   group_by(doy) %>% tally() %>% select (n) %>% mutate(n = n/2) %>%
-         #   sqrt() %>% unlist(), 
-         col = colours [y-2011])
-  abline(lm(sap_brix ~ doy, 
-            data = sap_data %>% 
-              filter(sap_volume >= 100 & site == "HF" & year == y)),
-         col = colours[y-2011], lwd = 2, lty = 2)
+axis(side = 2, las = 1, at = seq(0, 5, by = 1))
+for (y in c(2012:2018, 2022)) {
+  if (y != 2022) {
+    points(x = sap_data %>% 
+             filter(sap_volume >= 100 & site == "HF" & year == y) %>% 
+             group_by(doy) %>%
+             group_keys() %>% unlist(),
+           y = sap_data %>% 
+             filter(sap_volume >= 100 & site == "HF" & year == y) %>% 
+             group_by(doy) %>%
+             summarise(mean_brix = mean(sap_brix, na.rm = TRUE)) %>% 
+             select(mean_brix) %>% unlist(),
+           pch = site.symbol(s = "HF"), 
+           col = colours [y-2011])
+    #abline(lm(sap_brix ~ doy, 
+    #          data = sap_data %>% 
+    #            filter(sap_volume >= 100 & site == "HF" & year == y)),
+    #       col = colours[y-2011], lwd = 2, lty = 2)
+  } else if (y == 2022) {
+    points(x = sap_data %>% 
+             filter(sap_volume >= 100 & site == "1" & year == y) %>% 
+             group_by(doy) %>%
+             group_keys() %>% unlist(),
+           y = sap_data %>% 
+             filter(sap_volume >= 100 & site == "1" & year == y) %>% 
+             group_by(doy) %>%
+             summarise(mean_brix = mean(sap_brix, na.rm = TRUE)) %>% 
+             select(mean_brix) %>% unlist(),
+           pch = site.symbol(s = "1"), 
+           col = colours [which(all_years == y)])
+  }
 }
-legend(x = yday(as_date("2018-02-01")), y = 6, box.lty = 0, legend = 2012:2018, col = colours, pch = 19)
+
+legend(x = yday(as_date("2018-02-01")), y = 5, legend = c("L'Assomption", "Montréal", "Harvard Forest",
+                                  "Dartmouth", "Southernmost Maple", "Québec",
+                                  "Divide Ridge", "Indiana Dunes")[1:3], 
+       pch = site.symbol(unique(sap_data$site))[1:3], box.lty = 0)
+legend(x = yday(as_date("2018-02-25")), y = 5, box.lty = 0, legend = 2012:2014, 
+       col = colours, lwd = 2, bg = "transparent")
+legend(x = yday(as_date("2018-03-15")), y = 5, box.lty = 0, legend = 2015:2017, 
+       col = colours[4:6], lwd = 2, bg = "transparent")
+legend(x = yday(as_date("2018-03-30")), y = 5, box.lty = 0, legend = c(2018, 2022), 
+       col = colours[7:8], lwd = 2, bg = "transparent")
