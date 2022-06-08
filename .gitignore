@@ -3,3 +3,9 @@
 .RData
 .Ruserdata
 .secrets
+présentations/
+fig/
+.gitignore
+.DS_Store
+data/
+manuscripts/

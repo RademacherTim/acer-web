@@ -47,8 +47,8 @@ AW_data_t <- AW_data_t %>%
          site = factor(site),
          tap = factor(tap),
          dbh = cbh / pi,
-         tap.bearing = o_tap,
-         tap.height = h_tap_ground)
+         tap_bearing = o_tap,
+         tap_height = h_tap_ground)
 
 # calculate mean sap succrose concentration (°Brix) ----------------------------
 AW_data_s <- AW_data_s %>% 
@@ -98,13 +98,19 @@ HF_data_t <- HF_data_t %>% group_by(tree, year) %>% mutate(n_taps = case_when(
 HF_data <- left_join(HF_data_s, HF_data_t, by = c("tree","tap","year")) %>% 
   select(-date.y, -species.y) %>% # 
   rename(date = "date.x",
-         spp = "species.x")
+         spp = "species.x",
+         tap_height = "tap.height",
+         tap_bearing = "tap.bearing") %>% 
+  # N.B.: TR - I still hope to get these from Josh
+  add_column(tap_date = NA,
+             tap_removal = NA)
 
 # compile different data sets---------------------------------------------------
 sap_data <- full_join(AW_data, HF_data,
                       by = c("site", "datetime", "date", "year", "doy", "time",  
                              "tree", "tap", "n_taps", "spp", "sap_volume", 
-                             "sap_brix","dbh", "tap.height", "tap.bearing")) 
+                             "sap_brix","dbh", "tap_height", "tap_bearing",
+                             "tap_date","tap_removal")) 
 
 # read AcerNet data ------------------------------------------------------------
 # N.B.: This data does not include tree sizes or any metadata. It is only sap 
@@ -136,6 +142,9 @@ AN_data <- AN_data %>% group_by(tree, year) %>% mutate(n_taps = case_when(
   "A" %in% tap ~ 1,
 )) %>% ungroup()
 
+# N.B.: TR - I still hope to get these from Josh
+AN_data <- AN_data %>% add_column(tap_date = NA, tap_removal = NA)
+
 # compile different data sets---------------------------------------------------
 sap_data <- full_join(sap_data, AN_data,
                       by = c("site", "datetime", "date", "year", "doy", "time",  
@@ -154,6 +163,10 @@ sap_data <- sap_data %>%
          !(site == "1" & date == as_date("2022-04-18") & tree %in% c(15, 16, 27)),
          !(site == "1" & date == as_date("2022-04-19") & tree %in% c(1:3, 5:8, 14, 25, 32, 33)),
          !(site == "1" & date == as_date("2022-04-30") & tree %in% c(15)))
+
+# add days since tapping columns to data ---------------------------------------
+sap_data <- sap_data %>% 
+  mutate(days_since_tapping = as.integer(difftime(date, tap_date, units = "days")))
 
 # plot histogram of sap volume and sap brix at Harvard Forest ------------------
 PLOT <- FALSE

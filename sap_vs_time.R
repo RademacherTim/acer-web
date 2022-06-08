@@ -1,3 +1,9 @@
+#===============================================================================
+# script to explore relationships between sap sugar content and sap yield and 
+# time. In particular, we are investigating :
+#  - changes in sap sugar content time during the sugaring season 
+#  - changes in sap yield since tapping (diminishing returns)
+#-------------------------------------------------------------------------------
 colours <- brewer.pal (8, "Set3")
 
 # plot succrose concentration (°Brix) over time at l'Assomption ----------------
@@ -176,3 +182,14 @@ legend(x = yday(as_date("2018-03-15")), y = 5, box.lty = 0, legend = 2015:2017,
        col = colours[4:6], lwd = 2, bg = "transparent")
 legend(x = yday(as_date("2018-03-30")), y = 5, box.lty = 0, legend = c(2018, 2022), 
        col = colours[7:8], lwd = 2, bg = "transparent")
+
+# plot sap yield since tapping date --------------------------------------------
+max(sap_data$sap_volume[which(!is.na(sap_data$days_since_tapping))])
+par (mar = c(5, 5, 1, 1))
+plot(x = sap_data$days_since_tapping,
+     y = sap_data$sap_volume / 1e3, axes = FALSE, 
+     xlab = "Days since tapping", ylab = "Sap yield (L)", pch = 19, 
+     col = "#66666666", xlim = c(0, 60), ylim = c(0, 10))
+axis (side = 1)
+axis (side = 2, las = 1)
+
