@@ -6,6 +6,7 @@
 if (!existsFunction("%>%")) library ("tidyverse")
 if (!existsFunction("yday")) library ("lubridate")
 if (!existsFunction("read_sheet")) library ("googlesheets4")
+if (!existsFunction("read_excel")) library ("readxl")
 if (!existsFunction("add.alpha")) library ("prettyGraphs")
 
 # authenthicate for spreadsheet and load the data from the acer-web sheet ------
@@ -47,7 +48,6 @@ AW_data_t <- AW_data_t %>%
          site = factor(site),
          tap = factor(tap),
          dbh = cbh / pi,
-         tap_bearing = o_tap,
          tap_height = h_tap_ground)
 
 # calculate mean sap succrose concentration (°Brix) ----------------------------
@@ -61,7 +61,33 @@ AW_data_s <- AW_data_s %>%
 AW_data_s <- AW_data_s %>% mutate(doy = yday(date))
 
 # combine the two data sets (tree-level data and sap flow data) ----------------
-AW_data <- left_join(AW_data_s, AW_data_t, by = c("tree", "tap", "year", "site"))
+AW_data <- left_join(AW_data_s, AW_data_t, by = c("tree", "tap", "year", "site")) %>%
+  select(-cbh, -sap_brix_1, -sap_brix_2, -sap_brix_3, -bucket_brix_1, 
+         -bucket_brix_2, -bucket_brix_3, -ice, -comment, -c_tap, -h_tap_ground, 
+         -h_tap_root_collar, -d_crown_1, -d_crown_2, -LAI, -vigor, 
+         -bark_thickness, -tap_time, -species, -running)
+
+# add column with tap width ----------------------------------------------------
+AW_data <- AW_data %>% add_column(tap_width = 0.79375) # 5/16" drill bit
+
+# re-arrange AW data for ease of comparison ------------------------------------
+AW_data <- AW_data %>% arrange(site, tree, tap, date, time, datetime, year, doy, 
+                               lat, lon, alti, sap_volume, sap_brix, bucket_brix, 
+                               spp, n_taps, tap_bearing, tap_height, tap_depth,
+                               tap_width)
+
+# remove outliers on 2022-03-12 due to most sap being frozen and 2022-03-14, as 
+# there was only very little sap (i.e., 50 or 100 ml with one tree at 300 ml) --
+AW_data <- AW_data %>% 
+  filter(!(site== "1" & date %in% as_date(c("2022-03-12","2022-03-14"))))
+
+# remove outliers due to rain water getting into the bucket --------------------
+AW_data <- AW_data %>% 
+  filter(!(site == "1" & date == as_date("2022-03-07") & tree == 27),
+         !(site == "1" & date == as_date("2022-03-18") & tree %in% c(16, 25, 27)),
+         !(site == "1" & date == as_date("2022-04-18") & tree %in% c(15, 16, 27)),
+         !(site == "1" & date == as_date("2022-04-19") & tree %in% c(1:3, 5:8, 14, 25, 32, 33)),
+         !(site == "1" & date == as_date("2022-04-30") & tree %in% c(15)))
 
 # load Harvard Forest data -----------------------------------------------------
 HF_data_t <- read_csv("./data/HF/hf285-01-maple-tap.csv", col_types = cols())
@@ -101,16 +127,27 @@ HF_data <- left_join(HF_data_s, HF_data_t, by = c("tree","tap","year")) %>%
          spp = "species.x",
          tap_height = "tap.height",
          tap_bearing = "tap.bearing") %>% 
-  # N.B.: TR - I still hope to get these from Josh
-  add_column(tap_date = NA,
-             tap_removal = NA)
+  add_column(tap_date = NA, # N.B.: TR - I still hope to get these from Josh
+             tap_removal = NA, # N.B.: TR - I still hope to get these from Josh
+             tap_depth = 5.08, # 2 inches
+             tap_width = 0.79375, # 5/16" drill bit
+             lat = 42.53321,
+             lon = -72.19090,
+             alti = 338)
+
+# re-arrange HF data for ease of comparison ------------------------------------
+HF_data <- HF_data %>% arrange(site, tree, tap, date, time, datetime, year, doy, 
+                               lat, lon, alti, sap_volume, sap_brix,
+                               spp, n_taps, tap_bearing, tap_height, tap_depth,
+                               tap_width)
 
 # compile different data sets---------------------------------------------------
-sap_data <- full_join(AW_data, HF_data,
-                      by = c("site", "datetime", "date", "year", "doy", "time",  
-                             "tree", "tap", "n_taps", "spp", "sap_volume", 
-                             "sap_brix","dbh", "tap_height", "tap_bearing",
-                             "tap_date","tap_removal")) 
+sap_data <- full_join(AW_data, HF_data, 
+                      by = c("site", "tree", "tap", "date", "time", 
+                             "sap_volume", "lat", "lon", "alti", "tap_date", 
+                             "tap_removal", "datetime", "year", "sap_brix", 
+                             "doy", "n_taps", "spp", "tap_bearing", "tap_depth", 
+                             "dbh", "tap_height", "tap_width")) 
 
 # read AcerNet data ------------------------------------------------------------
 # N.B.: This data does not include tree sizes or any metadata. It is only sap 
@@ -129,7 +166,7 @@ AN_data <- read_csv("./data/AcerNet/ACERnet_sap_2012_2017_ID.csv",
   select(-Sugar, -Sap.Wt, -Date, -Site, -Species, -Tree, -Tap, -Year, -Site.ID, 
          -Tree.ID, -Tree.Record.ID, -Tap.Record.ID)
 
-# filter out Harvard Forest data which was obtained independently --------------
+# filter out Harvard Forest data, which was obtained independently -------------
 AN_data <- AN_data %>% filter(site != "HF")
 
 # add datetime, time, and dbh columns ------------------------------------------
@@ -142,29 +179,104 @@ AN_data <- AN_data %>% group_by(tree, year) %>% mutate(n_taps = case_when(
   "A" %in% tap ~ 1,
 )) %>% ungroup()
 
-# N.B.: TR - I still hope to get these from Josh
-AN_data <- AN_data %>% add_column(tap_date = NA, tap_removal = NA)
+# add column with additional information from publication (Rapp et al., 2019) --
+AN_data <- AN_data %>% 
+  add_column(tap_date = NA,    # N.B.: TR - I still hope to get these from Josh
+             tap_removal = NA, # N.B.: TR - I still hope to get these from Josh
+             tap_depth = 5.08, # 2" 
+             tap_width = 0.79375, # 5/16" drill bit and spile
+             tap_bearing = NA,
+             tap_height = NA)    
+
+# add latitude and longitude of sites and estimated altitude -------------------
+AN_data <- AN_data %>% 
+  mutate(lat = case_when(
+      site == "DOF"  ~ 43.734,  # Dartmouth Organic Farm
+      site == "QC"   ~ 48.431,  # Quebec
+      site == "DR"   ~ 37.011,  # Divide Ridge
+      site == "INDU" ~ 41.625,  # Indiana Dunes National Lakeshore
+      site == "SMM"  ~ 38.231), # Southernmost Maple
+    lon = case_when(
+      site == "DOF"  ~ -72.249,  # Dartmouth Organic Farm
+      site == "QC"   ~ -70.688,  # Quebec
+      site == "DR"   ~ -82.676,  # Divide Ridge
+      site == "INDU" ~ -87.081,  # Indiana Dunes National Lakeshore
+      site == "SMM"  ~ -79.658), # Southernmost Maple
+    alti = case_when( # from elevation finder
+      site == "DOF"  ~ 271.0,  # Dartmouth Organic Farm
+      site == "QC"   ~ 243.0,  # Quebec
+      site == "DR"   ~ 634.5,  # Divide Ridge
+      site == "INDU" ~ 198.0,  # Indiana Dunes National Lakeshore
+      site == "SMM"  ~ 837.5)) # Southernmost Maple
+
+# re-arrange HF data for ease of comparison ------------------------------------
+AN_data <- AN_data %>% arrange(site, tree, tap, date, time, datetime, year, doy, 
+                               lat, lon, alti, sap_volume, sap_brix,
+                               spp, n_taps, tap_bearing, tap_height, tap_depth,
+                               tap_width)
 
 # compile different data sets---------------------------------------------------
-sap_data <- full_join(sap_data, AN_data,
-                      by = c("site", "datetime", "date", "year", "doy", "time",  
-                             "tree", "tap", "n_taps", "spp", "sap_volume", 
-                             "sap_brix","dbh")) 
+sap_data <- full_join(sap_data, AN_data, 
+                      by = c("site", "tree", "tap", "date", "time", 
+                             "sap_volume", "lat", "lon", "alti", "tap_date", 
+                             "tap_removal", "datetime", "year", "sap_brix", 
+                             "doy", "n_taps", "spp", "tap_bearing", "tap_depth", 
+                             "dbh", "tap_height", "tap_width"))
 
-# remove outliers on 2022-03-12 due to most sap being frozen and 2022-03-14, as 
-# there was only very little sap (i.e., 50 or 100 ml with one tree at 300 ml) --
-sap_data <- sap_data %>% 
-  filter(!(site == "1" & date == as_date(c("2022-03-12","2022-03-14"))))
+# read raw data from Mont Valin rain gauges for two trees ----------------------
+MV_data <- read_csv2(file = "./data/MontValin/monts_valin_data_cleaned.csv",
+                    col_types = c("cccdddD")) %>% 
+  select(-rain_inc, -event_counts)
 
-# remove outliers due to rain water getting into the bucket --------------------
-sap_data <- sap_data %>% 
-  filter(!(site == "1" & date == as_date("2022-03-07") & tree == 27),
-         !(site == "1" & date == as_date("2022-03-18") & tree %in% c(16, 25, 27)),
-         !(site == "1" & date == as_date("2022-04-18") & tree %in% c(15, 16, 27)),
-         !(site == "1" & date == as_date("2022-04-19") & tree %in% c(1:3, 5:8, 14, 25, 32, 33)),
-         !(site == "1" & date == as_date("2022-04-30") & tree %in% c(15)))
+# add datetime to enable interval association ----------------------------------
+MV_data <- MV_data %>%
+  mutate(datetime = as_datetime (paste(date, time), 
+                                 format = "%Y-%m-%d %H:%M", 
+                                 tz = "EST"))
 
-# add days since tapping columns to data ---------------------------------------
+# create column with days since 2022-01-01 5:00, which I should use as daily 
+# interavl (e.g., 5:00 to 4:59) to separate individual thaw event-related flow 
+# histogram shows that the least likely time for sapflow is at 05:00 am so I 
+# used that as separator for "daily" flow 
+MV_data <- MV_data %>% 
+  mutate(day_intervals = datetime - as_datetime("2022-01-01 05:00:00", format = "%Y-%m-%d %H:%M:%S"))
+# TR - Something is not right with the calculation of day_intervals, as it does not change at 5:00 am
+
+# calculate "daily" (between 5am and 4:59am) flow ------------------------------
+MV_data %>% group_by(site, tree, tap, day_intervals) %>% 
+  summarise(sap_volume = sum(sap_volume_inc),
+            .groups = "drop")
+
+# add year, day of yearm and the dbh for each tree -----------------------------
+MV_data <- MV_data %>% mutate(year = lubridate::year(date),
+                              doy = lubridate::yday(date), 
+                              dbh = case_when(tree == 1 ~ 22,
+                                              tree == 2 ~ 16))
+
+
+# add required columns based on information from Sara --------------------------
+MV_data <- MV_data %>% add_column (lat = 48.63011129292363, 
+                                   lon = -70.8875769500555, 
+                                   alti = 220, 
+                                   tap_date = as_date("2022-03-17"), 
+                                   tap_removal = as_date("2022-06-01"), 
+                                   sap_brix = NA, 
+                                   bucket_brix = NA, 
+                                   n_taps = 1, 
+                                   spp = "ACSA", 
+                                   tap_bearing = NA, 
+                                   tap_depth = 5.5, 
+                                   tap_height = NA, # they were tapped at breast height (supposedly 1.3m)
+                                   tap_width = 0.79375) # 5/16" spout # TR Need to check with Sara
+
+
+# re-arrange order to match the sap_data tibble --------------------------------
+MV_data <- MV_data %>% arrange(site, tree, tap, date, time, datetime, year, doy, 
+                               lat, lon, alti, sap_brix,
+                               spp, n_taps, tap_bearing, tap_height, tap_depth,
+                               tap_width)
+
+# add days since tapping column to data ----------------------------------------
 sap_data <- sap_data %>% 
   mutate(days_since_tapping = as.integer(difftime(date, tap_date, units = "days")))
 
