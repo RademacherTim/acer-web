@@ -215,7 +215,7 @@ AN_data <- AN_data %>% arrange(site, tree, tap, date, time, datetime, year, doy,
                                spp, n_taps, tap_bearing, tap_height, tap_depth,
                                tap_width)
 
-# compile different data sets---------------------------------------------------
+# combine Acer Net data with other data ----------------------------------------
 sap_data <- full_join(sap_data, AN_data, 
                       by = c("site", "tree", "tap", "date", "time", 
                              "sap_volume", "lat", "lon", "alti", "tap_date", 
@@ -235,24 +235,31 @@ MV_data <- MV_data %>%
                                  tz = "EST"))
 
 # create column with days since 2022-01-01 5:00, which I should use as daily 
-# interavl (e.g., 5:00 to 4:59) to separate individual thaw event-related flow 
+# interval (e.g., 5:00 to 4:59) to separate individual thaw event-related flow 
 # histogram shows that the least likely time for sapflow is at 05:00 am so I 
 # used that as separator for "daily" flow 
 MV_data <- MV_data %>% 
-  mutate(day_intervals = datetime - as_datetime("2022-01-01 05:00:00", format = "%Y-%m-%d %H:%M:%S"))
-# TR - Something is not right with the calculation of day_intervals, as it does not change at 5:00 am
+  mutate(day_intervals = floor(datetime - 
+                               as_datetime("2022-01-01 05:00:00", 
+                                           format = "%Y-%m-%d %H:%M:%S",
+                                           tz = "EST")))
 
 # calculate "daily" (between 5am and 4:59am) flow ------------------------------
-MV_data %>% group_by(site, tree, tap, day_intervals) %>% 
-  summarise(sap_volume = sum(sap_volume_inc),
-            .groups = "drop")
+MV_data <- MV_data %>% group_by(site, tree, tap, day_intervals) %>% 
+  summarise(sap_volume = sum(sap_volume_inc, na.rm = TRUE),
+            .groups = "drop") %>% 
+  mutate(doy = as.integer(day_intervals)) %>% select(-day_intervals)
 
-# add year, day of yearm and the dbh for each tree -----------------------------
-MV_data <- MV_data %>% mutate(year = lubridate::year(date),
+# add year and the dbh for each tree -------------------------------------------
+MV_data <- MV_data %>% mutate(date = lubridate::as_date("2022-01-01") + doy,
+                              time = parse_time("05:00"),
+                              datetime = as_datetime(paste(date, time), 
+                                                     format = "%Y-%m-%d %H:%M", 
+                                                     tz = "EST"),
+                              year = lubridate::year(date),
                               doy = lubridate::yday(date), 
                               dbh = case_when(tree == 1 ~ 22,
                                               tree == 2 ~ 16))
-
 
 # add required columns based on information from Sara --------------------------
 MV_data <- MV_data %>% add_column (lat = 48.63011129292363, 
@@ -265,16 +272,23 @@ MV_data <- MV_data %>% add_column (lat = 48.63011129292363,
                                    n_taps = 1, 
                                    spp = "ACSA", 
                                    tap_bearing = NA, 
-                                   tap_depth = 5.5, 
+                                   tap_depth = 5.5, # between 5 and 6cm according to Sara
                                    tap_height = NA, # they were tapped at breast height (supposedly 1.3m)
-                                   tap_width = 0.79375) # 5/16" spout # TR Need to check with Sara
-
+                                   tap_width = 0.79375) # 5/16" spout driilled with 19/64 drill bit
 
 # re-arrange order to match the sap_data tibble --------------------------------
 MV_data <- MV_data %>% arrange(site, tree, tap, date, time, datetime, year, doy, 
                                lat, lon, alti, sap_brix,
                                spp, n_taps, tap_bearing, tap_height, tap_depth,
                                tap_width)
+
+# combine Mont Valin data with other data sets ---------------------------------
+sap_data <- full_join(sap_data, AN_data, 
+                      by = c("site", "tree", "tap", "date", "time", 
+                             "sap_volume", "lat", "lon", "alti", "tap_date", 
+                             "tap_removal", "datetime", "year", "sap_brix", 
+                             "doy", "n_taps", "spp", "tap_bearing", "tap_depth", 
+                             "dbh", "tap_height", "tap_width"))
 
 # add days since tapping column to data ----------------------------------------
 sap_data <- sap_data %>% 
