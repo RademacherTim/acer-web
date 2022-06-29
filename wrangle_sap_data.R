@@ -256,7 +256,7 @@ MV_data <- MV_data %>% mutate(date = lubridate::as_date("2022-01-01") + doy,
                               datetime = as_datetime(paste(date, time), 
                                                      format = "%Y-%m-%d %H:%M", 
                                                      tz = "EST"),
-                              year = lubridate::year(date),
+                              year = factor(lubridate::year(date)),
                               doy = lubridate::yday(date), 
                               dbh = case_when(tree == 1 ~ 22,
                                               tree == 2 ~ 16))
@@ -282,8 +282,8 @@ MV_data <- MV_data %>% arrange(site, tree, tap, date, time, datetime, year, doy,
                                spp, n_taps, tap_bearing, tap_height, tap_depth,
                                tap_width)
 
-# combine Mont Valin data with other data sets ---------------------------------
-sap_data <- full_join(sap_data, AN_data, 
+# combine Monts Valin data with other data sets --------------------------------
+sap_data <- full_join(sap_data, MV_data, 
                       by = c("site", "tree", "tap", "date", "time", 
                              "sap_volume", "lat", "lon", "alti", "tap_date", 
                              "tap_removal", "datetime", "year", "sap_brix", 
