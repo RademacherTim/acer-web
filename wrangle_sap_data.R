@@ -371,6 +371,12 @@ sap_data <- sap_data %>% mutate(
   days_since_tapping = as.integer(difftime(date, tap_date, units = "days"))
 )
 
+# create a seasonal summary for each tap ---------------------------------------
+seasonal_data <- sap_data %>% group_by(site, tree, tap, year) %>%
+  summarise(sap_volume = sum(sap_volume, na.rm = TRUE),
+            sap_brix = mean(sap_brix, na.rm = TRUE),
+            .groups = "drop")
+
 # plot histogram of sap volume and sap brix at Harvard Forest ------------------
 PLOT <- FALSE
 if(PLOT){
@@ -383,4 +389,14 @@ if(PLOT){
        main = "", lty = 1)
   abline(v = median(sap_data$sap_brix, na.rm = TRUE), col = "#94452E", lwd = 2)
 }
+
+# get some basic stats for intro -----------------------------------------------
+sap_data %>% filter(sap_volume > 0 & !is.na (sap_volume)) %>% count() # number of daily sap volume measurements
+sap_data %>% filter(!is.na (sap_brix)) %>% count() # number of daily sugar content measurements
+sap_data %>% group_by(site, tree, tap) %>% n_groups() # number of taps
+sap_data %>% group_by(site, tree) %>% n_groups() # number of trees
+sap_data %>% group_by(site) %>% n_groups() # number of sites
+sap_data %>% filter(spp == "ACSA") %>% group_by(site, tree) %>% n_groups() # number of sugar maples
+sap_data %>% filter(spp == "ACRU") %>% group_by(site, tree) %>% n_groups() # number of red maples
+sap_data %>% filter(spp == "ACPL") %>% group_by(site, tree) %>% n_groups() # number of Norway maples
 #===============================================================================

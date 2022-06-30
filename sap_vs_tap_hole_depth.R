@@ -14,7 +14,7 @@ all_years <- sap_data %>% mutate (year = as.character(year)) %>%
   select(year) %>% unique() %>% arrange(year) %>% unlist() %>% as.numeric()
 
 # get distinctive colours ------------------------------------------------------
-colours <- brewer.pal (8, "Set3")
+colours <- brewer.pal (10, "Set3")
 
 # set opacity for plot symbols -------------------------------------------------
 opa <- 1.0
@@ -30,6 +30,8 @@ site.symbol <- function(s){
     s == "QC" ~ 5,
     s == "DR" ~ 6,
     s == "INDU" ~ 8,
+    s == "MV" ~ 15,
+    s == "OU" ~ 16,
   )
   return(n)
 }
@@ -40,21 +42,21 @@ plot(x = sap_data %>%
        filter (sap_volume >= 100 & site == "5") %>% 
        group_by(tree, tap, year) %>% 
        summarise(total_volume = sum(sap_volume, na.rm = TRUE) / 1e3,
-                 mean_dbh = mean(dbh, na.rm = TRUE), .groups = "keep") %>% 
-       ungroup() %>% select(mean_dbh) %>%
+                 mean_depth = mean(tap_depth, na.rm = TRUE), .groups = "keep") %>% 
+       ungroup() %>% select(mean_depth) %>%
        unlist(),
      y = sap_data %>% 
        filter (sap_volume >= 100 & site == "5") %>% 
        group_by(tree, tap, year) %>% 
        summarise(total_volume = sum(sap_volume, na.rm = TRUE) / 1e3, 
-                 mean_dbh = mean(dbh, na.rm = TRUE),
+                 mean_depth = mean(tap_depth, na.rm = TRUE),
                  .groups = "keep") %>% ungroup() %>%
        select(total_volume) %>% 
        unlist(),
      pch = site.symbol("5"), 
      col = colours[which(all_years == y)],
-     xlab = "Tree diameter at breast height (cm)", ylab = "Total sap volume (L)",
-     xlim = c(0, 100), ylim = c(0, 200), axes = FALSE)
+     xlab = "Tap hole depth (cm)", ylab = "Total sap volume (L)",
+     xlim = c(4, 6), ylim = c(0, 200), axes = FALSE)
 axis(side = 1)
 axis(side = 2, las = 1)
 
@@ -71,11 +73,11 @@ for (s in unique(sap_data$site)){
     d <- sap_data %>% filter(site == s & year == y & sap_volume >= 100) %>% 
       group_by(tree, tap, year) %>% 
       summarise(total_volume = sum(sap_volume, na.rm = TRUE) / 1e3,
-                mean_dbh = mean(dbh, na.rm = TRUE), .groups = "keep") %>% 
+                mean_depth = mean(tap_depth, na.rm = TRUE), .groups = "keep") %>% 
       ungroup()
     
     # plot data points ---------------------------------------------------------
-    points(x = d %>% select(mean_dbh) %>% unlist(),
+    points(x = d %>% select(mean_depth) %>% unlist(),
            y = d %>% select(total_volume) %>% unlist(),
            pch = site.symbol(s),
            bg = add.alpha(colours[which(all_years == y)], opa), 
@@ -83,12 +85,12 @@ for (s in unique(sap_data$site)){
   }
 }
 # add legend -------------------------------------------------------------------
-legend(x = 0, y = 200, legend = c("L'Assomption", "Montréal", "Harvard Forest",
+legend(x = 4.0, y = 200, legend = c("L'Assomption", "Montréal", "Harvard Forest",
                                   "Dartmouth", "Southernmost Maple", "Québec",
-                                  "Divide Ridge", "Indiana Dunes")[1:3], 
-       pch = site.symbol(unique(sap_data$site))[1:3], box.lty = 0)
-legend(x = 0, y = 150, legend = all_years[c(1,5,6,8)], lwd = 2, 
-       col = add.alpha(colours[c(1,5,6,8)], opa), box.lty = 0)
+                                  "Divide Ridge", "Indiana Dunes", "Monts Valin", "Outaouais"), 
+       pch = site.symbol(unique(sap_data$site)), box.lty = 0)
+legend(x = 4.0, y = 100, legend = all_years, lwd = 2, 
+       col = add.alpha(colours, opa), box.lty = 0)
 
 # fit linear model to sap_volume over dbh relationship -------------------------
 l_mod0 <- lm(total_volume ~ mean_dbh, data = sap_data %>% 
