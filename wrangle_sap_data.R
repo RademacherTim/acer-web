@@ -268,7 +268,6 @@ MV_data <- MV_data %>% add_column (lat = 48.63011129292363,
                                    tap_date = as_date("2022-03-17"), 
                                    tap_removal = as_date("2022-06-01"), 
                                    sap_brix = NA, 
-                                   bucket_brix = NA, 
                                    n_taps = 1, 
                                    spp = "ACSA", 
                                    tap_bearing = NA, 
@@ -290,9 +289,87 @@ sap_data <- full_join(sap_data, MV_data,
                              "doy", "n_taps", "spp", "tap_bearing", "tap_depth", 
                              "dbh", "tap_height", "tap_width"))
 
+# read Élise raw data for Outaouais --------------------------------------------
+OU_data_t <- read_delim(file = "./data/Outaouais/Erables.txt", 
+                        delim = "\t", 
+                        col_types = cols())
+OU_data_s2020 <- read_delim(file = "./data/Outaouais/CH2020_data.txt", 
+                            delim = "\t", 
+                            col_types = cols()) %>% 
+  add_column(Comments = NA)
+OU_data_s2021 <- read_delim(file = "./data/Outaouais/CH2021_data.txt", 
+                            delim = "\t", 
+                            col_types = cols())
+
+# combine data sets for 2020 and 2021 and add year column ----------------------
+OU_data_s <- rbind(OU_data_s2020, OU_data_s2021) %>% 
+  mutate(year = factor(lubridate::year(Date)))
+
+# add dbh column ---------------------------------------------------------------
+OU_data <- left_join(OU_data_s, OU_data_t, by = "ID")
+
+# rename columns for consistency -----------------------------------------------
+OU_data <- OU_data %>% rename(sap_brix = Sugar,
+                              sap_volume = Volume,
+                              date = Date,
+                              tree = ID,
+                              dbh = `DBH `) %>% 
+  filter(is.na(Comments)) %>% 
+  select(-Comments)
+
+# add additional columns with site info ----------------------------------------
+OU_data <- OU_data %>% add_column(
+  site = "OU",
+  tap = "A",
+  time = parse_time("19:00"), # these are aggregated from 19:00 of the previous 
+                              # day to 19:00h of the current day
+  lat = 45.954444,
+  lon = 74.863611,
+  alti = 232, # from elevation finder
+  n_taps = 1, 
+  spp = "ACSA",
+  tap_depth = 5.0, # or 2"
+  tap_height = 1.4, # Approximately at breast height
+  tap_width =  0.79375 # or 5/16"
+)
+
+# add columns for datetime, year, tap_date, tap_removal, doy, tap_bearing ------
+OU_data <- OU_data %>% 
+  mutate(tree = factor(tree),
+         date = as_date(date),
+         year = factor(lubridate::year(date)),
+         tap_date = as_date(ifelse(year == 2020,
+                           NA, # Élise still waiting to hear from intern
+                           "2021-03-06")),
+         tap_removal = as_date(ifelse(year == 2020,
+                              NA, # Élise still waiting to hear from intern
+                              "2021-04-27")),
+         datetime = as_datetime(paste(date, time), 
+                                format = "%Y-%m-%d %H:%M", 
+                                tz = "EST"),
+         doy = lubridate::yday(date),
+         tap_bearing = ifelse(year == 2020, 90, # East
+                              180)) # South
+
+# re-arrange order to match the sap_data tibble --------------------------------
+OU_data <- OU_data %>% arrange(site, tree, tap, date, time, datetime, year, doy, 
+                               lat, lon, alti, sap_brix,
+                               spp, n_taps, tap_bearing, tap_height, tap_depth,
+                               tap_width)
+
+# combine Monts Valin data with other data sets --------------------------------
+sap_data <- full_join(sap_data, OU_data, 
+                      by = c("site", "tree", "tap", "date", "time", 
+                             "sap_volume", "lat", "lon", "alti", "tap_date", 
+                             "tap_removal", "datetime", "year", "sap_brix", 
+                             "doy", "n_taps", "spp", "tap_bearing", "tap_depth", 
+                             "dbh", "tap_height", "tap_width"))
+
+
 # add days since tapping column to data ----------------------------------------
-sap_data <- sap_data %>% 
-  mutate(days_since_tapping = as.integer(difftime(date, tap_date, units = "days")))
+sap_data <- sap_data %>% mutate(
+  days_since_tapping = as.integer(difftime(date, tap_date, units = "days"))
+)
 
 # plot histogram of sap volume and sap brix at Harvard Forest ------------------
 PLOT <- FALSE
