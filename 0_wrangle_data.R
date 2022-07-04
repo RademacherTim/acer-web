@@ -2,6 +2,10 @@
 # script to download and wrangle sugar season data sap data
 #-------------------------------------------------------------------------------
 
+# tasks ------------------------------------------------------------------------
+# TR - Add data from Michaël and maybe Yvon Grenier to the model
+ 
+
 # load dependencies ------------------------------------------------------------
 if (!existsFunction("%>%")) library ("tidyverse")
 if (!existsFunction("yday")) library ("lubridate")
@@ -271,7 +275,7 @@ MV_data <- MV_data %>% add_column (lat = 48.63011129292363,
                                    n_taps = 1, 
                                    spp = "ACSA", 
                                    tap_bearing = NA, 
-                                   tap_depth = 5.5, # between 5 and 6cm according to Sara
+                                   tap_depth = 5, # between 5 and 6cm according to Sara
                                    tap_height = NA, # they were tapped at breast height (supposedly 1.3m)
                                    tap_width = 0.79375) # 5/16" spout driilled with 19/64 drill bit
 
@@ -325,7 +329,7 @@ OU_data <- OU_data %>% add_column(
                               # day to 19:00h of the current day
   lat = 45.954444,
   lon = 74.863611,
-  alti = 232, # from elevation finder
+  alti = 233, # according to Christian Messier
   n_taps = 1, 
   spp = "ACSA",
   tap_depth = 5.0, # or 2"
@@ -372,9 +376,12 @@ sap_data <- sap_data %>% mutate(
 )
 
 # create a seasonal summary for each tap ---------------------------------------
-seasonal_data <- sap_data %>% group_by(site, tree, tap, year) %>%
-  summarise(sap_volume = sum(sap_volume, na.rm = TRUE),
+seasonal_data <- sap_data %>% 
+  group_by(site, tree, tap, year) %>%
+  summarise(sap_volume = sum(sap_volume, na.rm = TRUE) / 1e3, # in litres
             sap_brix = mean(sap_brix, na.rm = TRUE),
+            tap_depth = mean(tap_depth, na.rm = TRUE),
+            tap_width = mean(tap_width, na.rm = TRUE),
             .groups = "drop")
 
 # plot histogram of sap volume and sap brix at Harvard Forest ------------------
@@ -399,4 +406,5 @@ sap_data %>% group_by(site) %>% n_groups() # number of sites
 sap_data %>% filter(spp == "ACSA") %>% group_by(site, tree) %>% n_groups() # number of sugar maples
 sap_data %>% filter(spp == "ACRU") %>% group_by(site, tree) %>% n_groups() # number of red maples
 sap_data %>% filter(spp == "ACPL") %>% group_by(site, tree) %>% n_groups() # number of Norway maples
+
 #===============================================================================
