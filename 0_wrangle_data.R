@@ -25,7 +25,7 @@ AW_data_s <- read_sheet (ss = sheet_url, sheet = "01_sap_data",
                          col_types = "cccDcldddddddlc")
 AW_data_t <- read_sheet (ss = sheet_url, sheet = "05_tree_data",  
                          na = "NA",
-                         col_types = "iccciccddddddddddd")
+                         col_types = "iccciccddddddddddddcd")
 AW_site_data <- read_sheet (ss = sheet_url, sheet = "06_site_data",  
                             na = "NA",
                             col_types = "ccdddDcDi")
@@ -65,11 +65,13 @@ AW_data_s <- AW_data_s %>%
 AW_data_s <- AW_data_s %>% mutate(doy = yday(date))
 
 # combine the two data sets (tree-level data and sap flow data) ----------------
-AW_data <- left_join(AW_data_s, AW_data_t, by = c("tree", "tap", "year", "site")) %>%
+AW_data <- left_join(AW_data_s, 
+                     AW_data_t, by = c("tree", "tap", "year", "site")) %>%
   select(-cbh, -sap_brix_1, -sap_brix_2, -sap_brix_3, -bucket_brix_1, 
          -bucket_brix_2, -bucket_brix_3, -ice, -comment, -c_tap, -h_tap_ground, 
-         -h_tap_root_collar, -d_crown_1, -d_crown_2, -LAI, -vigor, 
-         -bark_thickness, -tap_time, -species, -running)
+         -h_tap_root_collar, -d_crown_1, -d_crown_2, -LAI, -`vigor (MSCR)`, 
+         -tap_closure, -bark_thickness, -wound, -distance_wound, -tap_time, 
+         -species, -running)
 
 # add column with tap width ----------------------------------------------------
 AW_data <- AW_data %>% add_column(tap_width = 0.79375) # 5/16" drill bit
@@ -103,9 +105,34 @@ HF_data_t <- HF_data_t %>% mutate(tree = ifelse(substr(tree,1,3) == "HFR",
                                                 paste0("AR",substr(tree,4,nchar(tree))),
                                                 tree))
 
+# add rows to tibble with data for 2015, which was missing ---------------------
+# According to sap flow data trees AR1, AR2, AR3, AR4, AR6, AR7, AR9, AR10, 
+# HF35, and HF40 only have one tap ---------------------------------------------
+# TR - Verify with Josh
+HF_data_t <- HF_data_t %>% add_row(date = as_date("2015-02-01"), # picked a random date
+                      tree = c(rep(c("HF1", "HF4", "HF5", "HF6", "HF7", "HF9", 
+                                     "HF10", "HF12", "HF13", "HF16", "HF21", 
+                                     "HF22", "HF23", "HF33",  "HF38",  "HF41", 
+                                     "HF43", "AR5", "AR8"), each = 2), # have two taps according to sap flow file
+                               c("HF35","HF40","AR1", "AR2", "AR3", "AR4","AR6", 
+                                 "AR7","AR9", "AR10")), # have one tap according to sap flow file
+                      tap = c(rep(c("A", "B"), 19), rep("A", 10)),
+                      species = c(rep("ACSA", 17*2), rep("ACRU", 2*2), 
+                                  rep("ACSA", 2), rep("ACRU", 8)),
+                      dbh = NA,
+                      tap.bearing = NA,
+                      tap.height = NA)
+
 # add year column to the tree-specific data ------------------------------------
 HF_data_t <- HF_data_t %>% mutate(year = factor(lubridate::year(date)))
-  
+
+# add a column with number of taps ---------------------------------------------
+HF_data_t <- HF_data_t %>% group_by(tree, year) %>% mutate(n_taps = case_when(
+  "C" %in% tap ~ 3,
+  "B" %in% tap ~ 2,
+  "A" %in% tap ~ 1,
+)) %>% ungroup()
+
 # add day of year (doy) and sap_volume columns ---------------------------------
 # density of water is 997.77 kg m-3 and succrose increases the density of the 
 # solution. At 2% succrose content we can use a conversion factor of 1.0 L / kg.
@@ -116,13 +143,6 @@ HF_data_s <- HF_data_s %>%
          site = "HF",
          sap_brix = sugar) %>%
   select(-sap.wt,-sugar)
-
-# add a column with number of taps ---------------------------------------------
-HF_data_t <- HF_data_t %>% group_by(tree, year) %>% mutate(n_taps = case_when(
-  "C" %in% tap ~ 3,
-  "B" %in% tap ~ 2,
-  "A" %in% tap ~ 1,
-)) %>% ungroup()
 
 # combine the two data sets ----------------------------------------------------
 HF_data <- left_join(HF_data_s, HF_data_t, by = c("tree","tap","year")) %>% 
@@ -378,10 +398,13 @@ sap_data <- sap_data %>% mutate(
 # create a seasonal summary for each tap ---------------------------------------
 seasonal_data <- sap_data %>% 
   group_by(site, tree, tap, year) %>%
-  summarise(sap_volume = sum(sap_volume, na.rm = TRUE) / 1e3, # in litres
+  summarise(spp = unique(spp),
+            sap_volume = sum(sap_volume, na.rm = TRUE) / 1e3, # in litres
             sap_brix = mean(sap_brix, na.rm = TRUE),
             tap_depth = mean(tap_depth, na.rm = TRUE),
             tap_width = mean(tap_width, na.rm = TRUE),
+            n_taps = as.integer(mean(n_taps, na.rm = TRUE)),
+            dbh = mean(dbh, na.rm = TRUE),
             .groups = "drop")
 
 # plot histogram of sap volume and sap brix at Harvard Forest ------------------
