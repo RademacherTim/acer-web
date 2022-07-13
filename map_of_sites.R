@@ -38,6 +38,14 @@ site_data <- sap_data %>%
 # html_legend <- "<img src='http://leafletjs.com/examples/custom-icons/leaf-green.png'>green<br/>
 # <img src='http://leafletjs.com/examples/custom-icons/leaf-red.png'>red"
 
+# custom legend function 
+addLegendCustom <- function(map, title, colors, labels, sizes, opacity = 0.5){
+  colorAdditions <- paste0(colors, "; border-radius: 50%; width:", sizes, "px; height:", sizes, "px")
+  labelAdditions <- paste0("<div style='display: inline-block;height: ", sizes, "px;margin-top: 4px;line-height: ", sizes, "px;'>", labels, "</div>")
+  
+  return(addLegend(map, title = title, colors = colorAdditions, labels = labelAdditions, opacity = opacity))
+}
+
 # make map of the sites --------------------------------------------------------
 m <- leaflet(data = site_data) %>%
   addTiles() %>%  # Add default OpenStreetMap map tiles
@@ -50,11 +58,13 @@ m <- leaflet(data = site_data) %>%
               stroke = FALSE,
               fillOpacity = 0.6,
               fillColor = "#CC7240") %>%
-  addLegend("bottomright", 
-            colors = rep("#CC7240",4), 
+  addLegendCustom(#"bottomright", 
+            colors = "#CC7240", 
             labels = c("< 40","< 80","< 160","< 320"),
+            sizes = c(5, 10, 15, 20),
             title = "Number of observations",
-            opacity = 0.6)
+            opacity = 0.6) #%>%
+  #addGeotiff(file = filenames[1])
 m
 # TR - The legend is not quite right yet, as it does not show the markers or 
 # their sizes

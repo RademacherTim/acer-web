@@ -348,7 +348,7 @@ OU_data <- OU_data %>% add_column(
   time = parse_time("19:00"), # these are aggregated from 19:00 of the previous 
                               # day to 19:00h of the current day
   lat = 45.954444,
-  lon = 74.863611,
+  lon = -74.863611,
   alti = 233, # according to Christian Messier
   n_taps = 1, 
   spp = "ACSA",
@@ -406,6 +406,9 @@ seasonal_data <- sap_data %>%
             n_taps = as.integer(mean(n_taps, na.rm = TRUE)),
             dbh = mean(dbh, na.rm = TRUE),
             .groups = "drop")
+
+# remove the data for taps that did have no sap flow at all --------------------
+seasonal_data <- seasonal_data %>% filter(sap_volume > 0)
 
 # plot histogram of sap volume and sap brix at Harvard Forest ------------------
 PLOT <- FALSE
