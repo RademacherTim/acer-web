@@ -395,6 +395,9 @@ sap_data <- sap_data %>% mutate(
   days_since_tapping = as.integer(difftime(date, tap_date, units = "days"))
 )
 
+# make sure all trees have unique tree IDs -------------------------------------
+sap_data <- sap_data %>% mutate(tree = paste(site, tree, sep = "_"))
+
 # create a seasonal summary for each tap ---------------------------------------
 seasonal_data <- sap_data %>% 
   group_by(site, tree, tap, year) %>%
@@ -409,6 +412,12 @@ seasonal_data <- sap_data %>%
 
 # remove the data for taps that did have no sap flow at all --------------------
 seasonal_data <- seasonal_data %>% filter(sap_volume > 0)
+
+# create log_yield variable to avoid fitting a log-normal-----------------------
+seasonal_data$log_yield <- log(seasonal_data$sap_volume)
+
+# remove single data point from Norway maple -----------------------------------
+seasonal_data <- seasonal_data %>% filter(spp != "ACPL")
 
 # plot histogram of sap volume and sap brix at Harvard Forest ------------------
 PLOT <- FALSE
