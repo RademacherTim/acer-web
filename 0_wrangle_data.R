@@ -77,10 +77,10 @@ AW_data <- left_join(AW_data_s,
 AW_data <- AW_data %>% add_column(tap_width = 0.79375) # 5/16" drill bit
 
 # re-arrange AW data for ease of comparison ------------------------------------
-AW_data <- AW_data %>% arrange(site, tree, tap, date, time, datetime, year, doy, 
-                               lat, lon, alti, sap_volume, sap_brix, bucket_brix, 
-                               spp, n_taps, tap_bearing, tap_height, tap_depth,
-                               tap_width)
+AW_data <- AW_data %>% 
+  dplyr::relocate(site, tree, tap, date, time, datetime, year, doy, lat, lon, 
+                  alti, spp, sap_volume, sap_brix, bucket_brix, n_taps, 
+                  tap_bearing, tap_height, tap_depth, tap_width)
 
 # remove outliers on 2022-03-12 due to most sap being frozen and 2022-03-14, as 
 # there was only very little sap (i.e., 50 or 100 ml with one tree at 300 ml) --
@@ -105,6 +105,9 @@ HF_data_t <- read_csv("./data/HF/HFmaple.tapping.2012_2022.csv",
 HF_data_s <- read_csv("./data/HF/HFmaple.sap.2012_2022.csv", 
                       col_types = cols()) %>% 
   mutate(date = lubridate::as_date(date, format = "%m/%d/%Y"))
+
+# remove empty rows ------------------------------------------------------------
+HF_data_s <- HF_data_s %>% filter(!is.na(species))
 
 # change "HFR", which stands for Harvard Forest red maple to "AR", which stands 
 # for Acer rurbrum, in the tree id for consistency of the two HF data sets -----
@@ -156,6 +159,10 @@ HF_data_s <- HF_data_s %>%
          sap_brix = sugar) %>%
   select(-sap.wt,-sugar)
 
+# exclude two lines with typo --------------------------------------------------
+# TR - Josh might send corrected values
+HF_data_s <- HF_data_s %>% filter(sap_volume < 100000 | is.na(sap_volume))
+
 # combine the two data sets ----------------------------------------------------
 HF_data <- left_join(HF_data_s, HF_data_t, by = c("tree", "tap", "year")) %>% 
   select(-species.y) %>% # 
@@ -172,24 +179,26 @@ HF_data <- left_join(HF_data_s, HF_data_t, by = c("tree", "tap", "year")) %>%
 
 # determine tap_removal as last date of data collection ------------------------
 # it was the day of last sap collection according to Josh
-temp <- HF_data %>% group_by(tree, tap, year) %>% summarise(tap_removal = max(date), .groups = "drop")
+temp <- HF_data %>% group_by(tree, tap, year) %>% 
+  summarise(tap_removal = max(date), .groups = "drop")
 
 # add tap removal to tibble ----------------------------------------------------
 HF_data <- left_join(HF_data, temp, by = c("tree", "tap", "year"))
+rm(temp)
 
 # re-arrange HF data for ease of comparison ------------------------------------
-HF_data <- HF_data %>% arrange(site, tree, tap, date, time, datetime, year, doy, 
-                               lat, lon, alti, tap_date, tap_removal, 
-                               sap_volume, sap_brix, spp, n_taps, tap_bearing, 
-                               dbh, tap_height, tap_depth, tap_width)
+HF_data <- HF_data %>% 
+  dplyr::relocate(site, tree, tap, date, time, datetime, year, doy, lat, lon, 
+                 alti, spp, sap_volume, sap_brix, spp, n_taps, tap_bearing, 
+                 tap_height, tap_depth, tap_width, tap_date, tap_removal, dbh)
 
 # compile different data sets---------------------------------------------------
 sap_data <- full_join(AW_data, HF_data, 
-                      by = c("site", "tree", "tap", "date", "time", 
-                             "sap_volume", "lat", "lon", "alti", "tap_date", 
-                             "tap_removal", "datetime", "year", "sap_brix", 
-                             "doy", "n_taps", "spp", "tap_bearing", "tap_depth", 
-                             "dbh", "tap_height", "tap_width")) 
+                      by = c("site", "tree", "tap", "date", "time", "datetime", 
+                             "year", "doy", "lat", "lon", "alti", "spp", 
+                             "sap_volume", "sap_brix", "n_taps", "tap_bearing", 
+                             "tap_height", "tap_depth", "tap_width", "tap_date", 
+                             "tap_removal", "dbh")) 
 
 # read AcerNet data ------------------------------------------------------------
 # N.B.: This data does not include tree sizes or any metadata. It is only sap 
@@ -252,18 +261,18 @@ AN_data <- AN_data %>%
       site == "SMM"  ~ 837.5)) # Southernmost Maple
 
 # re-arrange HF data for ease of comparison ------------------------------------
-AN_data <- AN_data %>% arrange(site, tree, tap, date, time, datetime, year, doy, 
-                               lat, lon, alti, sap_volume, sap_brix,
-                               spp, n_taps, tap_bearing, tap_height, tap_depth,
-                               tap_width)
+AN_data <- AN_data %>% 
+  dplyr::relocate(site, tree, tap, date, time, datetime, year, doy, lat, lon, 
+                  alti, spp, sap_volume, sap_brix, n_taps, tap_bearing, 
+                  tap_height, tap_depth, tap_width)
 
 # combine Acer Net data with other data ----------------------------------------
 sap_data <- full_join(sap_data, AN_data, 
-                      by = c("site", "tree", "tap", "date", "time", 
-                             "sap_volume", "lat", "lon", "alti", "tap_date", 
-                             "tap_removal", "datetime", "year", "sap_brix", 
-                             "doy", "n_taps", "spp", "tap_bearing", "tap_depth", 
-                             "dbh", "tap_height", "tap_width"))
+                      by = c("site", "tree", "tap", "date", "time", "datetime",
+                             "year", "doy", "lat", "lon", "alti", "spp", 
+                             "sap_volume", "sap_brix", "n_taps", "tap_bearing", 
+                             "tap_height", "tap_depth", "tap_width","tap_date", 
+                             "tap_removal","dbh"))
 
 # read raw data from Mont Valin rain gauges for two trees ----------------------
 MV_data <- read_csv2(file = "./data/MontValin/monts_valin_data_cleaned.csv",
@@ -318,18 +327,18 @@ MV_data <- MV_data %>% add_column (lat = 48.63011129292363,
                                    tap_width = 0.79375) # 5/16" spout driilled with 19/64 drill bit
 
 # re-arrange order to match the sap_data tibble --------------------------------
-MV_data <- MV_data %>% arrange(site, tree, tap, date, time, datetime, year, doy, 
-                               lat, lon, alti, sap_brix,
-                               spp, n_taps, tap_bearing, tap_height, tap_depth,
-                               tap_width)
+MV_data <- MV_data %>% 
+  dplyr::relocate(site, tree, tap, date, time, datetime, year, doy, lat, lon, 
+                  alti, spp, sap_volume, sap_brix, n_taps, tap_bearing, 
+                  tap_height, tap_depth, tap_width, tap_date, tap_removal, dbh)
 
 # combine Monts Valin data with other data sets --------------------------------
 sap_data <- full_join(sap_data, MV_data, 
-                      by = c("site", "tree", "tap", "date", "time", 
-                             "sap_volume", "lat", "lon", "alti", "tap_date", 
-                             "tap_removal", "datetime", "year", "sap_brix", 
-                             "doy", "n_taps", "spp", "tap_bearing", "tap_depth", 
-                             "dbh", "tap_height", "tap_width"))
+                      by = c("site", "tree", "tap", "date", "time", "datetime", 
+                             "year", "doy", "lat", "lon", "alti", "spp", 
+                             "sap_volume", "sap_brix", "n_taps", "tap_bearing", 
+                             "tap_height", "tap_depth", "tap_width", "tap_date", 
+                             "tap_removal", "dbh"))
 
 # read Élise raw data for Outaouais --------------------------------------------
 OU_data_t <- read_delim(file = "./data/Outaouais/Erables.txt", 
@@ -394,18 +403,18 @@ OU_data <- OU_data %>%
                               180)) # South
 
 # re-arrange order to match the sap_data tibble --------------------------------
-OU_data <- OU_data %>% arrange(site, tree, tap, date, time, datetime, year, doy, 
-                               lat, lon, alti, sap_brix,
-                               spp, n_taps, tap_bearing, tap_height, tap_depth,
-                               tap_width)
+OU_data <- OU_data %>% 
+  dplyr::relocate(site, tree, tap, date, time, datetime, year, doy, lat, lon, 
+                  alti, spp, sap_volume, sap_brix, n_taps, tap_bearing, 
+                  tap_height, tap_depth, tap_width, tap_date, tap_removal, dbh)
 
 # combine Monts Valin data with other data sets --------------------------------
 sap_data <- full_join(sap_data, OU_data, 
-                      by = c("site", "tree", "tap", "date", "time", 
-                             "sap_volume", "lat", "lon", "alti", "tap_date", 
-                             "tap_removal", "datetime", "year", "sap_brix", 
-                             "doy", "n_taps", "spp", "tap_bearing", "tap_depth", 
-                             "dbh", "tap_height", "tap_width"))
+                      by = c("site", "tree", "tap", "date", "time", "datetime", 
+                             "year", "doy", "lat", "lon", "alti", "spp", 
+                             "sap_volume", "sap_brix", "n_taps","tap_bearing", 
+                             "tap_height", "tap_depth", "tap_width", "tap_date", 
+                             "tap_removal", "dbh"))
 
 
 # add days since tapping column to data ----------------------------------------
@@ -441,9 +450,9 @@ seasonal_data <- seasonal_data %>% filter(spp != "ACPL")
 PLOT <- FALSE
 if(PLOT){
   par(mar = c(5, 5, 1, 1))
-  hist(sap_data %>% filter(site == "HF") %>% select(sap_volume) %>% unlist(),
+  hist(sap_data %>% select(sap_volume) %>% unlist(),
        xlab = "Sap volume (ml)", main = "", col = "#CC724066")
-  hist(sap_data %>% filter(site == "HF") %>% select(sap_brix) %>% unlist(), 
+  hist(sap_data %>% select(sap_brix) %>% unlist(), 
        breaks = seq(0, 25, by = 0.2), xlim = c(0, 8), col = "#CC724066",
        xlab = expression(paste("Sap succrose concentration (",degree,"Brix)", sep = "")),
        main = "", lty = 1)
