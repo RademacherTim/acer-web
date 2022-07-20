@@ -96,8 +96,15 @@ AW_data <- AW_data %>%
          !(site == "1" & date == as_date("2022-04-30") & tree %in% c(15)))
 
 # load Harvard Forest data -----------------------------------------------------
-HF_data_t <- read_csv("./data/HF/hf285-01-maple-tap.csv", col_types = cols())
-HF_data_s <- read_csv("./data/HF/hf285-02-maple-sap.csv", col_types = cols())
+#HF_data_t1 <- read_csv("./data/HF/hf285-01-maple-tap.csv", col_types = cols())
+#HF_data_s1 <- read_csv("./data/HF/hf285-02-maple-sap.csv", col_types = cols())
+# use above link once the data has been updated on the Archive
+HF_data_t <- read_csv("./data/HF/HFmaple.tapping.2012_2022.csv", 
+                      col_types = cols()) %>% 
+  mutate(date = lubridate::as_date(date, format = "%m/%d/%Y"))
+HF_data_s <- read_csv("./data/HF/HFmaple.sap.2012_2022.csv", 
+                      col_types = cols()) %>% 
+  mutate(date = lubridate::as_date(date, format = "%m/%d/%Y"))
 
 # change "HFR", which stands for Harvard Forest red maple to "AR", which stands 
 # for Acer rurbrum, in the tree id for consistency of the two HF data sets -----
@@ -108,8 +115,7 @@ HF_data_t <- HF_data_t %>% mutate(tree = ifelse(substr(tree,1,3) == "HFR",
 # add rows to tibble with data for 2015, which was missing ---------------------
 # According to sap flow data trees AR1, AR2, AR3, AR4, AR6, AR7, AR9, AR10, 
 # HF35, and HF40 only have one tap ---------------------------------------------
-# TR - Verify with Josh
-HF_data_t <- HF_data_t %>% add_row(date = as_date("2015-02-01"), # picked a random date
+HF_data_t <- HF_data_t %>% add_row(date = as_date("2015-03-09"), # tapping date in 2015 according to Josh
                       tree = c(rep(c("HF1", "HF4", "HF5", "HF6", "HF7", "HF9", 
                                      "HF10", "HF12", "HF13", "HF16", "HF21", 
                                      "HF22", "HF23", "HF33",  "HF38",  "HF41", 
@@ -133,6 +139,12 @@ HF_data_t <- HF_data_t %>% group_by(tree, year) %>% mutate(n_taps = case_when(
   "A" %in% tap ~ 1,
 )) %>% ungroup()
 
+# add datetime column ----------------------------------------------------------
+HF_data_s <- HF_data_s %>%  
+  mutate(datetime = as_datetime (paste(date, time), 
+                                 format = "%Y-%m-%d %H:%M", 
+                                 tz = "EST"))
+
 # add day of year (doy) and sap_volume columns ---------------------------------
 # density of water is 997.77 kg m-3 and succrose increases the density of the 
 # solution. At 2% succrose content we can use a conversion factor of 1.0 L / kg.
@@ -145,25 +157,31 @@ HF_data_s <- HF_data_s %>%
   select(-sap.wt,-sugar)
 
 # combine the two data sets ----------------------------------------------------
-HF_data <- left_join(HF_data_s, HF_data_t, by = c("tree","tap","year")) %>% 
-  select(-date.y, -species.y) %>% # 
+HF_data <- left_join(HF_data_s, HF_data_t, by = c("tree", "tap", "year")) %>% 
+  select(-species.y) %>% # 
   rename(date = "date.x",
+         tap_date = "date.y",
          spp = "species.x",
          tap_height = "tap.height",
          tap_bearing = "tap.bearing") %>% 
-  add_column(tap_date = NA, # N.B.: TR - I still hope to get these from Josh
-             tap_removal = NA, # N.B.: TR - I still hope to get these from Josh
-             tap_depth = 5.08, # 2 inches
+  add_column(tap_depth = 5.08, # 2 inches
              tap_width = 0.79375, # 5/16" drill bit
              lat = 42.53321,
              lon = -72.19090,
              alti = 338)
 
+# determine tap_removal as last date of data collection ------------------------
+# it was the day of last sap collection according to Josh
+temp <- HF_data %>% group_by(tree, tap, year) %>% summarise(tap_removal = max(date), .groups = "drop")
+
+# add tap removal to tibble ----------------------------------------------------
+HF_data <- left_join(HF_data, temp, by = c("tree", "tap", "year"))
+
 # re-arrange HF data for ease of comparison ------------------------------------
 HF_data <- HF_data %>% arrange(site, tree, tap, date, time, datetime, year, doy, 
-                               lat, lon, alti, sap_volume, sap_brix,
-                               spp, n_taps, tap_bearing, tap_height, tap_depth,
-                               tap_width)
+                               lat, lon, alti, tap_date, tap_removal, 
+                               sap_volume, sap_brix, spp, n_taps, tap_bearing, 
+                               dbh, tap_height, tap_depth, tap_width)
 
 # compile different data sets---------------------------------------------------
 sap_data <- full_join(AW_data, HF_data, 

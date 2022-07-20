@@ -30,12 +30,13 @@ seasonal_data %>% filter(!is.na(n_taps) & !is.na(sap_brix)) %>% group_by(year) %
 
 # remove single data point for one tree with three taps ------------------------
 data3.2 <- seasonal_data %>% filter(n_taps %in% 1:2) %>% 
-  select(site, tree, tap, year, spp, n_taps, log_yield, sap_brix)
+  select(site, tree, tap, year, spp, n_taps, log_yield, sap_brix, dbh) %>%
+  mutate(tree = factor(tree, ordered = TRUE))
 
 # fit anormal distibution to log-transformed sap yield data
 mod3.2.1a <- brms::brm(brms::bf(log_yield ~
                                   year +       # interannual differences in sap yield
-                                  mo(n_taps) + # monotonic effect of ordinal predictor of number of taps
+                                  n_taps +     # monotonic effect of ordinal predictor of number of taps
                                   (1 | tree) + # tree-specific effects
                                   (1 | spp) +  # species-specific effects 
                                   (1 | site)), # site-specific effects
@@ -43,8 +44,7 @@ mod3.2.1a <- brms::brm(brms::bf(log_yield ~
                   family = gaussian(), 
                   prior = c(set_prior("normal(3.7, 10)", class = "Intercept"), # Corresponds to roughly 40L of sap or 1L of syrup with 40:1 conversion
                             set_prior("normal(0, 3)", class = "b"), # the interannual difference falls within -20L to +20L with 95% chance
-                            set_prior("normal(0, 2)", class = "b", coef = "mon_taps"),
-                            set_prior("dirichlet(1)", class = "simo", coef = "mon_taps1")),
+                            set_prior("normal(0, 2)", class = "b", coef = "n_taps")),
                   cores = 4, chains = 4,
                   control = list(adapt_delta = 0.99, max_treedepth = 11), # model looks good, so I 
                   # tried increasing adapt_delta, as a last resort to reduce 
@@ -65,7 +65,6 @@ pp_check(mod3.2.1a, ndraws = 100)
 pp_check(mod3.2.1a, type = "error_hist",  ndraws = 10)
 pp_check(mod3.2.1a, type = "scatter_avg", ndraws = 100)
 # Error in the posterior distribution looks normally-distributed
-# Maybe there is a bias (under-estimation at high sap yield values)
 
 # get model summary and coefficients -------------------------------------------
 summary(mod3.2.1a)
@@ -77,23 +76,20 @@ ranef(mod3.2.1a)$site[, , "Intercept"]
 # affects the amount of additional sap per tap ---------------------------------
 mod3.2.1b <- brms::brm(brms::bf(log_yield ~ 
                                   year + 
-                                  dbh * mo(n_taps) + 
+                                  n_taps * dbh + 
                                   (1 | tree) + # tree-specific effects
                                   (1 | spp) + 
                                   (1 | site)),
-                  data = seasonal_data,
+                  data = data3.2,
                   family = gaussian(), 
                   prior = c(set_prior("normal(3.7, 10)", class = "Intercept"),
                             set_prior("normal(0, 3)", class = "b"),
-                            set_prior("normal(0, 2)", class = "b", coef = "mon_taps"),
-                            set_prior("dirichlet(1)", class = "simo", coef = "mon_taps:dbh1"),
-                            set_prior("dirichlet(1)", class = "simo", coef = "mon_taps1")),
-                  cores = 1, chains = 1,
-                  control = list(adapt_delta = 0.99, max_treedepth = 11),
+                            set_prior("normal(0, 2)", class = "b", coef = "n_taps")),
+                  cores = 4, chains = 4,
+                  control = list(adapt_delta = 0.99, max_treedepth = 12),
                   iter = 6000, 
                   seed = 1353,
                   backend = "cmdstanr")
-#brms::prior_summary(mod3.2.1b)
 
 # posterior distribution checks ------------------------------------------------
 plot(mod3.2.1b)
@@ -108,15 +104,13 @@ pp_check(mod3.2.1b, type = "scatter_avg", ndraws = 100)
 summary(mod3.2.1b)
 ranef(mod3.2.1b)
 
+get_variables(mod3.2.1b)
+
 # draw from posterior ----------------------------------------------------------
 mod3.2.1b %>%
-  spread_draws(b_Intercept, b_dbh, bsp_mon_taps, r_tree[tree, ], r_site[site, ], r_spp[spp, ]) %>%
-  mutate(mean_effect = exp(b_Intercept + b_dbh + bsp_mon_taps + bsp_mon_taps:dbh + r_tree + r_site + r_spp)) %>%
-  median_hdi()
-m %>%
-  spread_draws(b_Intercept, r_condition[condition,]) %>%
-  mutate(condition_mean = b_Intercept + r_condition) %>%
-  ggplot(aes(y = condition, x = condition_mean)) +
+  spread_draws(b_Intercept, b_n_taps, b_dbh, r_tree[tree, ], r_site[site, ], r_spp[spp, ]) %>%
+  mutate(mean_effect = exp(b_Intercept + b_n_taps + b_dbh + r_tree + r_site + r_spp)) %>%
+  ggplot(aes(y = mean_effect, x = rep(1, 12e6))) +
   stat_halfeye()
 
 # fit a truncated normal distibution to determine the effect of the number of taps
