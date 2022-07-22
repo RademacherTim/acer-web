@@ -106,9 +106,6 @@ HF_data_s <- read_csv("./data/HF/HFmaple.sap.2012_2022.csv",
                       col_types = cols()) %>% 
   mutate(date = lubridate::as_date(date, format = "%m/%d/%Y"))
 
-# remove empty rows ------------------------------------------------------------
-HF_data_s <- HF_data_s %>% filter(!is.na(species))
-
 # change "HFR", which stands for Harvard Forest red maple to "AR", which stands 
 # for Acer rurbrum, in the tree id for consistency of the two HF data sets -----
 HF_data_t <- HF_data_t %>% mutate(tree = ifelse(substr(tree,1,3) == "HFR", 
@@ -158,10 +155,6 @@ HF_data_s <- HF_data_s %>%
          site = "HF",
          sap_brix = sugar) %>%
   select(-sap.wt,-sugar)
-
-# exclude two lines with typo --------------------------------------------------
-# TR - Josh might send corrected values
-HF_data_s <- HF_data_s %>% filter(sap_volume < 100000 | is.na(sap_volume))
 
 # combine the two data sets ----------------------------------------------------
 HF_data <- left_join(HF_data_s, HF_data_t, by = c("tree", "tap", "year")) %>% 
@@ -428,12 +421,14 @@ sap_data <- sap_data %>% mutate(tree = paste(site, tree, sep = "_"))
 # create a seasonal summary for each tap ---------------------------------------
 seasonal_data <- sap_data %>% 
   group_by(site, tree, tap, year) %>%
-  summarise(spp = unique(spp),
+  summarise(lat = mean(lat, na.rm = TRUE),
+            spp = unique(spp),
             sap_volume = sum(sap_volume, na.rm = TRUE) / 1e3, # in litres
             sap_brix = mean(sap_brix, na.rm = TRUE),
             tap_depth = mean(tap_depth, na.rm = TRUE),
             tap_width = mean(tap_width, na.rm = TRUE),
             n_taps = as.integer(mean(n_taps, na.rm = TRUE)),
+            tap_bearing = mean(tap_bearing, na.rm = TRUE),
             dbh = mean(dbh, na.rm = TRUE),
             .groups = "drop")
 
@@ -445,6 +440,38 @@ seasonal_data$log_yield <- log(seasonal_data$sap_volume)
 
 # remove single data point from Norway maple -----------------------------------
 seasonal_data <- seasonal_data %>% filter(spp != "ACPL")
+
+# group by sites and year to get sao run dates for each location ---------------
+mid_season <- sap_data %>% 
+  group_by(site, year) %>% 
+  filter(sap_volume > 0) %>% 
+  select(site, year, doy) %>% 
+  distinct() %>% 
+  summarise(median_doy = floor(median(doy)), .groups = "drop")
+
+# add median doy for sugaring season to sap_data -------------------------------
+sap_data <- left_join(sap_data, mid_season, by = c("site", "year"))
+
+# aggregate early-season data --------------------------------------------------
+early_data <- sap_data %>% 
+  filter(doy <= median_doy) %>% # only days before or on the median sap run day
+  group_by(site, tree, tap, year) %>%
+  summarise(sap_volume_e = sum(sap_volume, na.rm = TRUE) / 1e3, # in litres
+            sap_brix_e = mean(sap_brix, na.rm = TRUE),
+            .groups = "drop")
+  
+# aggregate late-season data ---------------------------------------------------
+late_data <- sap_data %>% 
+  filter(doy > median_doy) %>% # only days after the median sap run day
+  group_by(site, tree, tap, year) %>%
+  summarise(sap_volume_l = sum(sap_volume, na.rm = TRUE) / 1e3, # in litres
+            sap_brix_l = mean(sap_brix, na.rm = TRUE),
+            .groups = "drop")
+  
+# add early- and late-season data to seasonal_data -----------------------------
+seasonal_data <- seasonal_data %>% 
+  left_join(early_data, by = c("site", "tree", "tap", "year")) %>%
+  left_join(late_data, by = c("site", "tree", "tap", "year"))
 
 # plot histogram of sap volume and sap brix at Harvard Forest ------------------
 PLOT <- FALSE

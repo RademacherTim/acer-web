@@ -1,4 +1,7 @@
 #===============================================================================
+#
+# Section 3.1: Tap depth
+#
 # script to explore relationship between sap yield or sugar content and tap hole 
 # depth
 #-------------------------------------------------------------------------------
@@ -15,16 +18,19 @@ axis(side = 1, at = 1, labels = "~5 cm")
 axis(side = 2, las = 1)
 
 # get number of data points that report tap depth ------------------------------
-sap_data %>% filter(!is.na(tap_depth))
-seasonal_data %>% filter(!is.na(tap_depth))
+sap_data %>% filter(!is.na(tap_depth) & sap_volume > 100) %>% count()
+seasonal_data %>% filter(!is.na(tap_depth) & sap_volume > 0) %>% count()
 
 # plot tap_depth against sap brix ----------------------------------------------
 par(mar = c(5, 5, 1, 1))
 boxplot(sap_brix ~ round(tap_depth), data = seasonal_data,
-     xlab = "Tree diameter at breast height (cm)", 
+     xlab = "Tap hole depth (cm)", 
      ylab = expression(paste("Mean sap succrose concentration (",degree," Brix)", sep = "")),
      ylim = c(0, 6), axes = FALSE)
 axis(side = 1, at = 1, label = "~5 cm")
 axis(side = 2, las = 1)
 
+# get number of data points that report tap depth ------------------------------
+sap_data %>% filter(!is.na(tap_depth) & sap_brix > 0) %>% count()
+seasonal_data %>% filter(!is.na(tap_depth) & sap_brix > 0) %>% count()
 #===============================================================================

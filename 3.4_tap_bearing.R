@@ -1,4 +1,7 @@
 #===============================================================================
+#
+# Section 3.4: Tap orientation
+#
 # script to explore relationship between tap hole bearing, sap flow and succrose 
 # concentration.
 #-------------------------------------------------------------------------------
@@ -8,6 +11,331 @@ library("brms")
 
 # load the wrangled data -------------------------------------------------------
 source("0_wrangle_data.R")
+
+# get number of data points for sap yield --------------------------------------
+sap_data %>% filter(!is.na(tap_bearing) & sap_volume > 100) %>% count() # number of data points
+seasonal_data %>% filter(!is.na(tap_bearing) & sap_volume > 100) %>% count() # number of data points
+seasonal_data %>% filter(!is.na(tap_bearing) & sap_volume > 0) %>% group_by(site, tree, tap) %>% n_groups() # number of taps
+seasonal_data %>% filter(!is.na(tap_bearing) & sap_volume > 0) %>% group_by(site, tree) %>% n_groups() # number of trees
+seasonal_data %>% filter(!is.na(tap_bearing) & sap_volume > 0) %>% group_by(site) %>% n_groups() # number of sites
+seasonal_data %>% filter(!is.na(tap_bearing) & sap_volume > 0) %>% group_by(year) %>% n_groups() # number of years
+
+# get number of data points for sap brix ---------------------------------------
+sap_data %>% filter(!is.na(tap_bearing) & sap_brix > 0) %>% count() # number of data points
+seasonal_data %>% filter(!is.na(tap_bearing) & sap_brix > 0) %>% count() # number of data points
+seasonal_data %>% filter(!is.na(tap_bearing) & !is.na(sap_brix)) %>% group_by(site, tree, tap) %>% n_groups() # number of taps
+seasonal_data %>% filter(!is.na(tap_bearing) & !is.na(sap_brix)) %>% group_by(site, tree) %>% n_groups() # number of trees
+seasonal_data %>% filter(!is.na(tap_bearing) & !is.na(sap_brix)) %>% group_by(site) %>% n_groups() # number of sites
+seasonal_data %>% filter(!is.na(tap_bearing) & !is.na(sap_brix)) %>% group_by(year) %>% n_groups() # number of years
+
+# remove irrelevant data -------------------------------------------------------
+data3.4 <- seasonal_data %>% filter(!is.na(tap_bearing)) %>% 
+  select(site, lat, tree, year, spp, sap_volume, sap_brix, sap_volume_e, sap_brix_e, 
+         sap_volume_l, sap_brix_l, tap_bearing) %>%
+  mutate(tree = factor(tree))
+
+# effect of tap orientation (tap_bearing) on sap yield ------------
+# fit a lognormal distibution (NOT accounting for site latitude)
+mod3.4.1a <- brms::brm(brms::bf(sap_volume ~
+                                 (1 | year) +  # interannual differences in sap yield
+                                 s(tap_bearing) + # non-linear effect of tap orientation
+                                 # choosing a non-linear effect, because east and west may have different effects
+                                 (1 | tree) +  # tree-specific effects
+                                 (1 | spp) +   # species-specific effects 
+                                 (1 | site)),  # site-specific effects
+                       data = data3.4 %>% filter(!is.na(sap_volume) & sap_volume > 0),
+                       family = lognormal(), 
+                       prior = c(set_prior("normal(3.7, 10)", class = "Intercept"), # Corresponds to roughly 40L of sap or 1L of syrup with 40:1 conversion
+                                 set_prior("exponential(1)", class = "sigma"),
+                                 set_prior("normal(0, 2)", class = "b"),
+                                 set_prior("normal(0, 2)", class = "sd")), # the interannual difference falls within -20L to +20L with 95% chance
+                       cores = 4, chains = 4,
+                       control = list(adapt_delta = 0.9),
+                       iter = 6000,
+                       seed = 1353,
+                       backend = "cmdstanr")
+# posterior distribution checks ------------------------------------------------
+plot(mod3.4.1a)
+plot(conditional_effects(mod3.4.1a))$tap_bearing + ggplot2::ylim(0, 50)
+
+# additional posterior distribution checks -------------------------------------
+pp_check(mod3.4.1a, ndraws = 100)
+pp_check(mod3.4.1a, type = "error_hist",  ndraws = 10)
+pp_check(mod3.4.1a, type = "scatter_avg", ndraws = 100)
+# Error in the posterior distribution looks normally-distributed
+
+# get model summary and coefficients -------------------------------------------
+summary(mod3.4.1a)
+
+# effect of tap orientation (tap_bearing) on early-season sap yield ------------
+# fit a lognormal distibution 
+mod3.4.1a_e <- brms::brm(brms::bf(sap_volume_e ~
+                                  (1 | year) +  # interannual differences in sap yield
+                                  s(tap_bearing) + # non-linear effect of tap orientation
+                                  # choosing a non-linear effect, because east and west may have different effects
+                                  (1 | tree) +  # tree-specific effects
+                                  (1 | spp) +   # species-specific effects 
+                                  (1 | site)),  # site-specific effects
+                       data = data3.4 %>% filter(!is.na(sap_volume_e) & sap_volume_e > 0),
+                       family = lognormal(), 
+                       prior = c(set_prior("normal(3.7, 10)", class = "Intercept"), # Corresponds to roughly 40L of sap or 1L of syrup with 40:1 conversion
+                                 set_prior("exponential(1)", class = "sigma"),
+                                 set_prior("normal(0, 2)", class = "b"),
+                                 set_prior("normal(0, 2)", class = "sd")), # the interannual difference falls within -20L to +20L with 95% chance
+                       cores = 4, chains = 4,
+                       control = list(adapt_delta = 0.9),
+                       iter = 6000,
+                       seed = 1353,
+                       backend = "cmdstanr")
+
+# posterior distribution checks ------------------------------------------------
+plot(mod3.4.1a_e)
+plot(conditional_effects(mod3.4.1a_e))$tap_bearing + ggplot2::ylim(0, 50)
+
+# additional posterior distribution checks -------------------------------------
+pp_check(mod3.4.1a_e, ndraws = 100)
+pp_check(mod3.4.1a_e, type = "error_hist",  ndraws = 10)
+pp_check(mod3.4.1a_e, type = "scatter_avg", ndraws = 100)
+# Error in the posterior distribution looks normally-distributed
+
+# get model summary and coefficients -------------------------------------------
+summary(mod3.4.1a_e)
+
+# effect of tap orientation (tap_bearing) on early-season sap yield ------------
+# fit a lognormal distibution 
+mod3.4.1a_l <- brms::brm(brms::bf(sap_volume_l ~
+                                   (1 | year) +  # interannual differences in sap yield
+                                   s(tap_bearing) + # non-linear effect of tap orientation
+                                   # choosing a non-linear effect, because east and west may have different effects
+                                   (1 | tree) +  # tree-specific effects
+                                   (1 | spp) +   # species-specific effects 
+                                   (1 | site)),  # site-specific effects
+                        data = data3.4 %>% filter(!is.na(sap_volume_l) & sap_volume_l > 0),
+                        family = lognormal(), 
+                        prior = c(set_prior("normal(3.7, 10)", class = "Intercept"), # Corresponds to roughly 40L of sap or 1L of syrup with 40:1 conversion
+                                  set_prior("exponential(1)", class = "sigma"),
+                                  set_prior("normal(0, 2)", class = "b"),
+                                  set_prior("normal(0, 2)", class = "sd")), # the interannual difference falls within -20L to +20L with 95% chance
+                        cores = 4, chains = 4,
+                        control = list(adapt_delta = 0.9),
+                        iter = 6000,
+                        seed = 1353,
+                        backend = "cmdstanr")
+
+# posterior distribution checks ------------------------------------------------
+plot(mod3.4.1a_l)
+plot(conditional_effects(mod3.4.1a_l))$tap_bearing + ggplot2::ylim(0, 50)
+
+# additional posterior distribution checks -------------------------------------
+pp_check(mod3.4.1a_l, ndraws = 100)
+pp_check(mod3.4.1a_l, type = "error_hist",  ndraws = 10)
+pp_check(mod3.4.1a_l, type = "scatter_avg", ndraws = 100)
+# Error in the posterior distribution looks normally-distributed
+
+# get model summary and coefficients -------------------------------------------
+summary(mod3.4.1a_l)
+
+# effect of tap orientation (tap_bearing) on sap yield ------------
+# fit a lognormal distibution (accounting for site latitude)
+mod3.4.1b <- brms::brm(brms::bf(sap_volume ~
+                                 (1 | year) +  # interannual differences in sap yield
+                                 s(tap_bearing * lat) + # non-linear effect of tap orientation and its interaction with latitude
+                                 # choosing a non-linear effect, because east and west may have different effects
+                                 (1 | tree) +  # tree-specific effects
+                                 (1 | spp) +   # species-specific effects 
+                                 (1 | site)),  # site-specific effects
+                      data = data3.4 %>% filter(!is.na(sap_volume) & sap_volume > 0),
+                      family = lognormal(), 
+                      prior = c(set_prior("normal(3.7, 10)", class = "Intercept"), # Corresponds to roughly 40L of sap or 1L of syrup with 40:1 conversion
+                                set_prior("exponential(1)", class = "sigma"),
+                                set_prior("normal(0, 2)", class = "b"),
+                                set_prior("normal(0, 2)", class = "sd")), # the interannual difference falls within -20L to +20L with 95% chance
+                      cores = 4, chains = 4,
+                      control = list(adapt_delta = 0.9),
+                      iter = 6000,
+                      seed = 1353,
+                      backend = "cmdstanr")
+
+# posterior distribution checks ------------------------------------------------
+plot(mod3.4.1b)
+plot(conditional_effects(mod3.4.1b))$tap_bearing + ggplot2::ylim(0, 50)
+
+# additional posterior distribution checks -------------------------------------
+pp_check(mod3.4.1b, ndraws = 100)
+pp_check(mod3.4.1b, type = "error_hist",  ndraws = 10)
+pp_check(mod3.4.1b, type = "scatter_avg", ndraws = 100)
+# Error in the posterior distribution looks normally-distributed
+
+# get model summary and coefficients -------------------------------------------
+summary(mod3.4.1b)
+
+# effect of tap orientation (tap_bearing) on early-season sap yield ------------
+# fit a lognormal distibution 
+mod3.4.1b_e <- brms::brm(brms::bf(sap_volume_e ~
+                                    (1 | year) +  # interannual differences in sap yield
+                                    s(tap_bearing * lat) + # non-linear effect of tap orientation
+                                    # choosing a non-linear effect, because east and west may have different effects
+                                    (1 | tree) +  # tree-specific effects
+                                    (1 | spp) +   # species-specific effects 
+                                    (1 | site)),  # site-specific effects
+                         data = data3.4 %>% filter(!is.na(sap_volume_e) & sap_volume_e > 0),
+                         family = lognormal(), 
+                         prior = c(set_prior("normal(3.7, 10)", class = "Intercept"), # Corresponds to roughly 40L of sap or 1L of syrup with 40:1 conversion
+                                   set_prior("exponential(1)", class = "sigma"),
+                                   set_prior("normal(0, 2)", class = "b"),
+                                   set_prior("normal(0, 2)", class = "sd")), # the interannual difference falls within -20L to +20L with 95% chance
+                         cores = 4, chains = 4,
+                         control = list(adapt_delta = 0.9),
+                         iter = 6000,
+                         seed = 1353,
+                         backend = "cmdstanr")
+
+# posterior distribution checks ------------------------------------------------
+plot(mod3.4.1b_e)
+plot(conditional_effects(mod3.4.1b_e))$tap_bearing + ggplot2::ylim(0, 50)
+
+# additional posterior distribution checks -------------------------------------
+pp_check(mod3.4.1b_e, ndraws = 100)
+pp_check(mod3.4.1b_e, type = "error_hist",  ndraws = 10)
+pp_check(mod3.4.1b_e, type = "scatter_avg", ndraws = 100)
+# Error in the posterior distribution looks normally-distributed
+
+# get model summary and coefficients -------------------------------------------
+summary(mod3.4.1b_e)
+
+# effect of tap orientation (tap_bearing) on early-season sap yield ------------
+# fit a lognormal distibution 
+mod3.4.1b_l <- brms::brm(brms::bf(sap_volume_l ~
+                                    (1 | year) +  # interannual differences in sap yield
+                                    s(tap_bearing * lat) + # non-linear effect of tap orientation
+                                    # choosing a non-linear effect, because east and west may have different effects
+                                    (1 | tree) +  # tree-specific effects
+                                    (1 | spp) +   # species-specific effects 
+                                    (1 | site)),  # site-specific effects
+                         data = data3.4 %>% filter(!is.na(sap_volume_l) & sap_volume_l > 0),
+                         family = lognormal(), 
+                         prior = c(set_prior("normal(3.7, 10)", class = "Intercept"), # Corresponds to roughly 40L of sap or 1L of syrup with 40:1 conversion
+                                   set_prior("exponential(1)", class = "sigma"),
+                                   set_prior("normal(0, 2)", class = "b"),
+                                   set_prior("normal(0, 2)", class = "sd")), # the interannual difference falls within -20L to +20L with 95% chance
+                         cores = 4, chains = 4,
+                         control = list(adapt_delta = 0.9),
+                         iter = 6000,
+                         seed = 1353,
+                         backend = "cmdstanr")
+
+# posterior distribution checks ------------------------------------------------
+plot(mod3.4.1b_l)
+plot(conditional_effects(mod3.4.1b_l))$tap_bearing + ggplot2::ylim(0, 50)
+
+# additional posterior distribution checks -------------------------------------
+pp_check(mod3.4.1b_l, ndraws = 100)
+pp_check(mod3.4.1b_l, type = "error_hist",  ndraws = 10)
+pp_check(mod3.4.1b_l, type = "scatter_avg", ndraws = 100)
+# Error in the posterior distribution looks normally-distributed
+
+# get model summary and coefficients -------------------------------------------
+summary(mod3.4.1b_l)
+
+# effect of the number of taps on sugar content --------------------------------
+# fit a truncated normal distibution, as brix cannot be negative
+mod3.4.2 <- brms::brm(brms::bf(sap_brix | trunc(lb = 0) ~
+                                 (1 | year) + 
+                                 s(tap_bearing) + 
+                                 (1 | tree) +
+                                 (1 | spp) + 
+                                 (1 | site)),
+                      data = data3.4 %>% filter(!is.na(sap_brix)), # exclude NAs 
+                      family = gaussian(), 
+                      prior = c(set_prior("normal(2, 1)", class = "Intercept"),
+                                set_prior("exponential(1)", class = "sigma"),
+                                set_prior("normal(0, 2)", class = "b"),
+                                set_prior("normal(0, 2)", class = "sd")),
+                      cores = 4, chains = 4,
+                      control = list(adapt_delta = 0.9),
+                      iter = 6000,
+                      seed = 1353,
+                      backend = "cmdstanr")
+
+# posterior distribution checks ------------------------------------------------
+plot(mod3.4.2)
+plot(conditional_effects(mod3.4.2))$tap_bearing + ggplot2::ylim(0, 3.5)
+
+# additional posterior distribution checks -------------------------------------
+pp_check(mod3.4.2, ndraws = 100)
+pp_check(mod3.4.2, type = "error_hist",  ndraws = 10)
+pp_check(mod3.4.2, type = "scatter_avg", ndraws = 100)
+# Error in the posterior distribution looks normally-distributed 
+
+# get model summary and coeficcients -------------------------------------------
+summary(mod3.4.2)
+ranef(mod3.4.2)
+
+# effect of the number of taps on early-season sugar content -------------------
+# fit a truncated normal distibution, as brix cannot be negative
+mod3.4.2_e <- brms::brm(brms::bf(sap_brix_e | trunc(lb = 0) ~
+                                 (1 | year) + 
+                                 s(tap_bearing) + 
+                                 (1 | tree) +
+                                 (1 | spp) + 
+                                 (1 | site)),
+                      data = data3.4 %>% filter(!is.na(sap_brix_e)), # exclude NAs 
+                      family = gaussian(), 
+                      prior = c(set_prior("normal(2, 1)", class = "Intercept"),
+                                set_prior("exponential(1)", class = "sigma"),
+                                set_prior("normal(0, 2)", class = "b"),
+                                set_prior("normal(0, 2)", class = "sd")),
+                      cores = 4, chains = 4,
+                      control = list(adapt_delta = 0.9),
+                      iter = 6000,
+                      seed = 1353,
+                      backend = "cmdstanr")
+
+# posterior distribution checks ------------------------------------------------
+plot(mod3.4.2_e)
+plot(conditional_effects(mod3.4.2_e))$tap_bearing + ggplot2::ylim(0, 3.5)
+
+# additional posterior distribution checks -------------------------------------
+pp_check(mod3.4.2_e, ndraws = 100)
+pp_check(mod3.4.2_e, type = "error_hist",  ndraws = 10)
+pp_check(mod3.4.2_e, type = "scatter_avg", ndraws = 100)
+# Error in the posterior distribution looks normally-distributed 
+
+# get model summary and coeficcients -------------------------------------------
+summary(mod3.4.2_e)
+
+# effect of the number of taps on late-season sugar content --------------------
+# fit a truncated normal distibution, as brix cannot be negative
+mod3.4.2_l <- brms::brm(brms::bf(sap_brix_l | trunc(lb = 0) ~
+                                   (1 | year) + 
+                                   s(tap_bearing) + 
+                                   (1 | tree) +
+                                   (1 | spp) + 
+                                   (1 | site)),
+                        data = data3.4 %>% filter(!is.na(sap_brix_e)), # exclude NAs 
+                        family = gaussian(), 
+                        prior = c(set_prior("normal(2, 1)", class = "Intercept"),
+                                  set_prior("exponential(1)", class = "sigma"),
+                                  set_prior("normal(0, 2)", class = "b"),
+                                  set_prior("normal(0, 2)", class = "sd")),
+                        cores = 4, chains = 4,
+                        control = list(adapt_delta = 0.9),
+                        iter = 6000,
+                        seed = 1353,
+                        backend = "cmdstanr")
+
+# posterior distribution checks ------------------------------------------------
+plot(mod3.4.2_l)
+plot(conditional_effects(mod3.4.2_l))$tap_bearing + ggplot2::ylim(0, 3.5)
+
+# additional posterior distribution checks -------------------------------------
+pp_check(mod3.4.2_l, ndraws = 100)
+pp_check(mod3.4.2_l, type = "error_hist",  ndraws = 10)
+pp_check(mod3.4.2_l, type = "scatter_avg", ndraws = 100)
+# Error in the posterior distribution looks normally-distributed 
+
+# get model summary and coeficcients -------------------------------------------
+summary(mod3.4.2_l)
 
 # get all years for which we have measurements ---------------------------------
 all_years <- sap_data %>% mutate (year = as.character(year)) %>% 
