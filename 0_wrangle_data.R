@@ -3,8 +3,7 @@
 #-------------------------------------------------------------------------------
 
 # tasks ------------------------------------------------------------------------
-# TR - Add data from Michaël and maybe Yvon Grenier to the model
- 
+# TR - Add data from Yvon Grenier, if I can get my hands on it.
 
 # load dependencies ------------------------------------------------------------
 if (!existsFunction("%>%")) library ("tidyverse")
@@ -25,13 +24,10 @@ AW_data_s <- read_sheet (ss = sheet_url, sheet = "01_sap_data",
                          col_types = "cccDcldddddddlc")
 AW_data_t <- read_sheet (ss = sheet_url, sheet = "05_tree_data",  
                          na = "NA",
-                         col_types = "iccciccddddddddddddcd")
+                         col_types = "iccciccddddddd")
 AW_site_data <- read_sheet (ss = sheet_url, sheet = "06_site_data",  
                             na = "NA",
-                            col_types = "ccdddDcDi")
-
-# filter data for the site under consideration ---------------------------------
-#AW_data <- AW_data %>% filter(site == "1")
+                            col_types = "ccdddDcDic")
 
 # add tapping date and tap removal date ----------------------------------------
 AW_data_s <- left_join(AW_data_s, AW_site_data, by = c("site")) %>% 
@@ -68,19 +64,14 @@ AW_data_s <- AW_data_s %>% mutate(doy = yday(date))
 AW_data <- left_join(AW_data_s, 
                      AW_data_t, by = c("tree", "tap", "year", "site")) %>%
   select(-cbh, -sap_brix_1, -sap_brix_2, -sap_brix_3, -bucket_brix_1, 
-         -bucket_brix_2, -bucket_brix_3, -ice, -comment, -c_tap, -h_tap_ground, 
-         -h_tap_root_collar, -d_crown_1, -d_crown_2, -LAI, -`vigor (MSCR)`, 
-         -tap_closure, -bark_thickness, -wound, -distance_wound, -tap_time, 
-         -species, -running)
-
-# add column with tap width ----------------------------------------------------
-AW_data <- AW_data %>% add_column(tap_width = 0.79375) # 5/16" drill bit
+         -bucket_brix_2, -bucket_brix_3, -ice, -comment, -comments, -c_tap, 
+         -h_tap_ground, -h_tap_root_collar, -tap_time, -species, -running)
 
 # re-arrange AW data for ease of comparison ------------------------------------
 AW_data <- AW_data %>% 
   dplyr::relocate(site, tree, tap, date, time, datetime, year, doy, lat, lon, 
                   alti, spp, sap_volume, sap_brix, bucket_brix, n_taps, 
-                  tap_bearing, tap_height, tap_depth, tap_width)
+                  tap_bearing, tap_height, tap_depth, tap_width, dbh)
 
 # remove outliers on 2022-03-12 due to most sap being frozen and 2022-03-14, as 
 # there was only very little sap (i.e., 50 or 100 ml with one tree at 300 ml) --
@@ -200,7 +191,7 @@ AN_data <- read_csv("./data/AcerNet/ACERnet_sap_2012_2017_ID.csv",
                     col_types = cols()) %>% 
   mutate(date = as_date(Date, format = "%m/%d/%Y"),
          doy = lubridate::yday(date),
-         sap_volume = Sap.Wt * 1000,
+         sap_volume = Sap.Wt * 1000, # see note on conversion in HF data
          sap_brix = Sugar,
          site = Site.ID,
          tap = Tap,
@@ -373,7 +364,7 @@ OU_data <- OU_data %>% add_column(
   n_taps = 1, 
   spp = "ACSA",
   tap_depth = 5.0, # or 2"
-  tap_height = 1.4, # Approximately at breast height
+  tap_height = 140, # Approximately at breast height
   tap_width =  0.79375 # or 5/16"
 )
 
@@ -429,6 +420,7 @@ seasonal_data <- sap_data %>%
             tap_width = mean(tap_width, na.rm = TRUE),
             n_taps = as.integer(mean(n_taps, na.rm = TRUE)),
             tap_bearing = mean(tap_bearing, na.rm = TRUE),
+            tap_height = mean(tap_height, na.rm = TRUE),
             dbh = mean(dbh, na.rm = TRUE),
             .groups = "drop")
 
@@ -473,17 +465,41 @@ seasonal_data <- seasonal_data %>%
   left_join(early_data, by = c("site", "tree", "tap", "year")) %>%
   left_join(late_data, by = c("site", "tree", "tap", "year"))
 
-# plot histogram of sap volume and sap brix at Harvard Forest ------------------
+# plot some general charcteristics to make sure all works fine -----------------
 PLOT <- FALSE
 if(PLOT){
+  # histogram of sap volume ----------------------------------------------------
   par(mar = c(5, 5, 1, 1))
   hist(sap_data %>% select(sap_volume) %>% unlist(),
        xlab = "Sap volume (ml)", main = "", col = "#CC724066")
+  
+  # histogram of sap brix ------------------------------------------------------
   hist(sap_data %>% select(sap_brix) %>% unlist(), 
-       breaks = seq(0, 25, by = 0.2), xlim = c(0, 8), col = "#CC724066",
+       breaks = seq(0, 2000, by = 0.2), xlim = c(0, 8), col = "#CC724066",
        xlab = expression(paste("Sap succrose concentration (",degree,"Brix)", sep = "")),
        main = "", lty = 1)
   abline(v = median(sap_data$sap_brix, na.rm = TRUE), col = "#94452E", lwd = 2)
+  
+  # plot early- versus late-season sap yield -----------------------------------
+  plot(x = seasonal_data$sap_volume_e,
+       y = seasonal_data$sap_volume_l, pch = 19, col = "#91b9a466",
+       xlab = "Early-season sap yield (L)", 
+       ylab = "Late-season sap yield (L)", 
+       axes = FALSE)
+  axis(side = 1)
+  axis(side = 2, las = 1)
+  abline(b = 1, a = 0, col = "#999999", lty = 2, lwd = 2)
+  # TR - Is whether they fall above or below the line determined by the site latitude?
+  
+  # plot early- versus late-season sap brix ------------------------------------
+  plot(x = seasonal_data$sap_brix_e,
+       y = seasonal_data$sap_brix_l, pch = 19, col = "#91b9a466",
+       xlab = expression(paste("Early-season sugar content (",degree,"Brix)", sep = "")), 
+       ylab = expression(paste("Late-season sugar content (",degree,"Brix)", sep = "")), 
+       axes = FALSE, xlim = c(0, 8), ylim = c(0, 8))
+  axis(side = 1)
+  axis(side = 2, las = 1)
+  abline(b = 1, a = 0, col = "#999999", lty = 2, lwd = 2)
 }
 
 # get some basic stats for intro -----------------------------------------------
