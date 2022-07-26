@@ -9,7 +9,7 @@ library("webshot") # save saving leaflet map
 library("htmlwidgets")
 
 # load the wrangled data -------------------------------------------------------
-source("wrangle_sap_data.R") 
+source("0_wrangle_data.R") 
 
 # create dataframe of site coordinates -----------------------------------------
 site_data <- sap_data %>% 

@@ -22,12 +22,22 @@ sheet_url <- "https://docs.google.com/spreadsheets/d/1Iup_x-uyfN-vk9oK7bQVfSP7Xr
 AW_data_s <- read_sheet (ss = sheet_url, sheet = "01_sap_data",  
                          na = "NA",
                          col_types = "cccDcldddddddlc")
+AW_data_w <- read_sheet (ss = sheet_url, sheet = "03_wound_data",  
+                         na = "NA",
+                         col_types = "icccDdddcdcccdccc")
 AW_data_t <- read_sheet (ss = sheet_url, sheet = "05_tree_data",  
                          na = "NA",
                          col_types = "iccciccddddddd")
 AW_site_data <- read_sheet (ss = sheet_url, sheet = "06_site_data",  
                             na = "NA",
                             col_types = "ccdddDcDic")
+
+# add bark_thickness to tree_data from wound_data ------------------------------
+AW_data_t <- left_join(AW_data_t, AW_data_w, 
+                       by = c("year", "site", "tree", "tap")) %>%
+  select(-tap_closure_1, -tap_closure_2, -wound, -wound_distance, -wound_angle, 
+         -wound_orientation, -c_wound, -c_wound_distance, -c_wound_angle, 
+         -c_wound_orientation, -comments, -date)
 
 # add tapping date and tap removal date ----------------------------------------
 AW_data_s <- left_join(AW_data_s, AW_site_data, by = c("site")) %>% 
@@ -505,9 +515,11 @@ if(PLOT){
 # get some basic stats for intro -----------------------------------------------
 sap_data %>% filter(sap_volume > 0 & !is.na (sap_volume)) %>% count() # number of daily sap volume measurements
 sap_data %>% filter(!is.na (sap_brix)) %>% count() # number of daily sugar content measurements
-sap_data %>% group_by(site, tree, tap) %>% n_groups() # number of taps
-sap_data %>% group_by(site, tree) %>% n_groups() # number of trees
+sap_data %>% group_by(site, tree, tap, year) %>% n_groups() # number of taps, as taps differ by year 
+sap_data %>% group_by(site, tree, year) %>% n_groups() # number of tree years
+sap_data %>% group_by(site, tree) %>% n_groups() # number of different tree years
 sap_data %>% group_by(site) %>% n_groups() # number of sites
+sap_data %>% group_by(year) %>% n_groups() # number of years
 sap_data %>% filter(spp == "ACSA") %>% group_by(site, tree) %>% n_groups() # number of sugar maples
 sap_data %>% filter(spp == "ACRU") %>% group_by(site, tree) %>% n_groups() # number of red maples
 sap_data %>% filter(spp == "ACPL") %>% group_by(site, tree) %>% n_groups() # number of Norway maples

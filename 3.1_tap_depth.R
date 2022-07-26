@@ -33,4 +33,9 @@ axis(side = 2, las = 1)
 # get number of data points that report tap depth ------------------------------
 sap_data %>% filter(!is.na(tap_depth) & sap_brix > 0) %>% count()
 seasonal_data %>% filter(!is.na(tap_depth) & sap_brix > 0) %>% count()
+
+# get range of tap depth and bark thickness ------------------------------------
+# N.B.: both were only measured in l'Assomption
+range(sap_data$tap_depth, na.rm = T)
+range(sap_data$bark_thickness, na.rm = T)
 #===============================================================================

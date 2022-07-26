@@ -16,7 +16,7 @@ source("0_wrangle_data.R")
 # get number of data points for sap yield --------------------------------------
 sap_data %>% filter(!is.na(n_taps) & sap_volume > 100) %>% count() # number of data points
 seasonal_data %>% filter(!is.na(n_taps) & sap_volume > 100) %>% count() # number of data points
-seasonal_data %>% filter(!is.na(n_taps) & sap_volume > 0) %>% group_by(site, tree, tap) %>% n_groups() # number of taps
+seasonal_data %>% filter(!is.na(n_taps) & sap_volume > 0) %>% group_by(site, tree, tap, year) %>% n_groups() # number of taps
 seasonal_data %>% filter(!is.na(n_taps) & sap_volume > 0) %>% group_by(site, tree) %>% n_groups() # number of trees
 seasonal_data %>% filter(!is.na(n_taps) & sap_volume > 0 & n_taps == 1) %>% group_by(site, tree) %>% n_groups() # number of trees with one tap
 seasonal_data %>% filter(!is.na(n_taps) & sap_volume > 0 & n_taps == 2) %>% group_by(site, tree) %>% n_groups() # number of trees with one tap
@@ -27,7 +27,7 @@ seasonal_data %>% filter(!is.na(n_taps) & sap_volume > 0) %>% group_by(year) %>%
 # get number of data points for sap brix ---------------------------------------
 sap_data %>% filter(!is.na(n_taps) & sap_brix > 0) %>% count() # number of data points
 seasonal_data %>% filter(!is.na(n_taps) & sap_brix > 0) %>% count() # number of data points
-seasonal_data %>% filter(!is.na(n_taps) & !is.na(sap_brix)) %>% group_by(site, tree, tap) %>% n_groups() # number of taps
+seasonal_data %>% filter(!is.na(n_taps) & !is.na(sap_brix)) %>% group_by(site, tree, tap, year) %>% n_groups() # number of taps
 seasonal_data %>% filter(!is.na(n_taps) & !is.na(sap_brix)) %>% group_by(site, tree) %>% n_groups() # number of trees
 seasonal_data %>% filter(!is.na(n_taps) & !is.na(sap_brix) & n_taps == 1) %>% group_by(site, tree) %>% n_groups() # number of trees with one tap
 seasonal_data %>% filter(!is.na(n_taps) & !is.na(sap_brix) & n_taps == 2) %>% group_by(site, tree) %>% n_groups() # number of trees with one tap
