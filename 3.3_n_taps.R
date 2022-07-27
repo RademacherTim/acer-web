@@ -68,7 +68,7 @@ mod3.3.1a <- brms::brm(brms::bf(sap_volume ~
 
 # posterior distribution checks ------------------------------------------------
 plot(mod3.3.1a)
-plot(conditional_effects(mod3.2.1a))
+plot(conditional_effects(mod3.3.1a))
 
 # additional posterior distribution checks -------------------------------------
 pp_check(mod3.3.1a, ndraws = 100)
@@ -110,7 +110,7 @@ mod3.3.1b <- brms::brm(brms::bf(sap_volume ~
 
 # posterior distribution checks ------------------------------------------------
 plot(mod3.3.1b)
-plot(conditional_effects(mod3.2.1b))
+plot(conditional_effects(mod3.3.1b))
 
 # additional posterior distribution checks -------------------------------------
 pp_check(mod3.3.1b, ndraws = 100)

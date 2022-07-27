@@ -33,12 +33,13 @@ data4.1 <- seasonal_data %>% filter(!is.na(dbh)) %>%
   select(site, lat, tree, year, spp, sap_volume, sap_brix, dbh) %>%
   mutate(tree = factor(tree))
 
-# effect of tap height on the stem on sap yield --------------------------------
+# effect of size (i.e., dbh) on the stem on sap yield --------------------------
 # fit a lognormal distibution 
+# same model as for dbh (section 4.1) to account for different size 
+# distributions between species
 mod4.1.1 <- brms::brm(brms::bf(sap_volume ~
                                  (1 | year) +  # interannual differences in sap yield
-                                 dbh + # linear effect of dbh 
-                                 # this is likely to be non-linear, might try a spline
+                                 dbh + 
                                  (1 | tree) +  # tree-specific effects
                                  (1 | spp) +   # species-specific effects 
                                  (1 | site)),  # site-specific effects
@@ -67,12 +68,13 @@ pp_check(mod4.1.1, type = "scatter_avg", ndraws = 100)
 # get model summary and coefficients -------------------------------------------
 summary(mod4.1.1)
 
-# effect of the number of taps on sugar content --------------------------------
+# effect of size (dbh) on sugar content ----------------------------------------
 # fit a truncated normal distibution, as brix cannot be negative
+# same model as for dbh (section 4.1) to account for different size 
+# distributions between species
 mod4.1.2 <- brms::brm(brms::bf(sap_brix | trunc(lb = 0) ~
                                  (1 | year) + 
-                                 dbh + # see above, why linear effect is 
-                                 # reasonable approximation here.
+                                 dbh + 
                                  (1 | tree) +
                                  (1 | spp) + 
                                  (1 | site)),
@@ -90,7 +92,7 @@ mod4.1.2 <- brms::brm(brms::bf(sap_brix | trunc(lb = 0) ~
 
 # posterior distribution checks ------------------------------------------------
 plot(mod4.1.2)
-plot(conditional_effects(mod4.1.2))$tap_height + ggplot2::ylim(0, 5)
+plot(conditional_effects(mod4.1.2))$dbh + ggplot2::ylim(0, 5)
 
 # additional posterior distribution checks -------------------------------------
 pp_check(mod4.1.2, ndraws = 100)
@@ -100,7 +102,10 @@ pp_check(mod4.1.2, type = "scatter_avg", ndraws = 100)
 
 # get model summary and coefficients -------------------------------------------
 summary(mod4.1.2)
+ranef(mod4.1.2)$spp [, , "Intercept"]
 
 # conclusions ------------------------------------------------------------------
-# 
+# Both sap yield and sugar content increase with tree size. Sap yield increases 
+# super-linearly, while sugar content increases linearly (tried non-linear 
+# effects, but they gave a straight line).
 #===============================================================================
