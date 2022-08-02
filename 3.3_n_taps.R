@@ -50,7 +50,6 @@ mod3.3.1a <- brms::brm(brms::bf(sap_volume ~
                                 (1 | site)),   # site-specific effects
                   data = data3.3 %>% filter(!is.na(sap_volume)),
                   family = lognormal(), 
-                  # TR - Are these priors still meaningful?
                   prior = c(set_prior("normal(3.7, 10)", class = "Intercept"), # Corresponds to roughly 40L of sap or 1L of syrup with 40:1 conversion
                             set_prior("exponential(1)", class = "sigma"),
                             set_prior("normal(0, 2)", class = "sd"), # the interannual difference falls within -20L to +20L with 95% chance
@@ -68,7 +67,6 @@ mod3.3.1a <- brms::brm(brms::bf(sap_volume ~
 
 # posterior distribution checks ------------------------------------------------
 plot(mod3.3.1a)
-plot(conditional_effects(mod3.3.1a))
 
 # additional posterior distribution checks -------------------------------------
 pp_check(mod3.3.1a, ndraws = 100)
@@ -110,7 +108,7 @@ mod3.3.1b <- brms::brm(brms::bf(sap_volume ~
 
 # posterior distribution checks ------------------------------------------------
 plot(mod3.3.1b)
-plot(conditional_effects(mod3.3.1b))
+plot(conditional_effects(mod3.3.1b))$dbh + ggplot2::ylim(0, 120)
 
 # additional posterior distribution checks -------------------------------------
 pp_check(mod3.3.1b, ndraws = 100)
@@ -121,13 +119,46 @@ pp_check(mod3.3.1b, type = "scatter_avg", ndraws = 100)
 summary(mod3.3.1b)
 ranef(mod3.3.1b)
 
-# draw from posterior ----------------------------------------------------------
+# effect of the number of taps on sugar content --------------------------------
+# fit a truncated normal distibution, as brix cannot be negative
+mod3.3.2a <- brms::brm(brms::bf(sap_brix | trunc(lb = 0) ~
+                                  (1 | year) + 
+                                  (1 | n_taps) + 
+                                  (1 | tree) +
+                                  (1 | spp) + 
+                                  (1 | site)),
+                       data = data3.3 %>% filter(!is.na(sap_brix)), # exclude NAs 
+                       family = gaussian(), 
+                       prior = c(set_prior("normal(2, 1)", class = "Intercept"),
+                                 set_prior("exponential(1)", class = "sigma"),
+                                 set_prior("normal(0, 2)", class = "sd"),
+                                 set_prior("normal(0, 1)", class = "sd", coef = "Intercept", group = "n_taps")),
+                       cores = 4, chains = 4,
+                       control = list(adapt_delta = 0.9),
+                       iter = 6000,
+                       seed = 1353,
+                       backend = "cmdstanr")
+
+# posterior distribution checks ------------------------------------------------
+plot(mod3.3.2a)
+
+# additional posterior distribution checks -------------------------------------
+pp_check(mod3.3.2a, ndraws = 100)
+pp_check(mod3.3.2a, type = "error_hist",  ndraws = 10)
+pp_check(mod3.3.2a, type = "scatter_avg", ndraws = 100)
+# Error in the posterior distribution looks normally-distributed 
+
+# get model summary and coeficcients -------------------------------------------
+summary(mod3.3.2a)
+ranef(mod3.3.2a)
+ranef(mod3.3.2a)$n_taps
 
 # effect of the number of taps on sugar content --------------------------------
 # fit a truncated normal distibution, as brix cannot be negative
-mod3.3.2 <- brms::brm(brms::bf(sap_brix | trunc(lb = 0) ~
+mod3.3.2b <- brms::brm(brms::bf(sap_brix | trunc(lb = 0) ~
                                  (1 | year) + 
                                  (1 | n_taps) + 
+                                 dbh +
                                  (1 | tree) +
                                  (1 | spp) + 
                                  (1 | site)),
@@ -135,6 +166,7 @@ mod3.3.2 <- brms::brm(brms::bf(sap_brix | trunc(lb = 0) ~
                   family = gaussian(), 
                   prior = c(set_prior("normal(2, 1)", class = "Intercept"),
                             set_prior("exponential(1)", class = "sigma"),
+                            set_prior("normal(1, 2)", class = "b"),
                             set_prior("normal(0, 2)", class = "sd"),
                             set_prior("normal(0, 1)", class = "sd", coef = "Intercept", group = "n_taps")),
                   cores = 4, chains = 4,
@@ -144,18 +176,19 @@ mod3.3.2 <- brms::brm(brms::bf(sap_brix | trunc(lb = 0) ~
                   backend = "cmdstanr")
 
 # posterior distribution checks ------------------------------------------------
-plot(mod3.3.2)
+plot(mod3.3.2b)
+plot(conditional_effects(mod3.3.2b))$dbh + ggplot2::ylim(0, 5)
 
 # additional posterior distribution checks -------------------------------------
-pp_check(mod3.3.2, ndraws = 100)
-pp_check(mod3.3.2, type = "error_hist",  ndraws = 10)
-pp_check(mod3.3.2, type = "scatter_avg", ndraws = 100)
+pp_check(mod3.3.2b, ndraws = 100)
+pp_check(mod3.3.2b, type = "error_hist",  ndraws = 10)
+pp_check(mod3.3.2b, type = "scatter_avg", ndraws = 100)
 # Error in the posterior distribution looks normally-distributed 
 
 # get model summary and coeficcients -------------------------------------------
-summary(mod3.3.2)
-ranef(mod3.3.2)
-ranef(mod3.3.2)$n_taps
+summary(mod3.3.2b)
+ranef(mod3.3.2b)
+ranef(mod3.3.2b)$n_taps
 
 # Conclusion: A second tap reduces sap yield for the second tap substantially, 
 #             but does not affect sugar content.

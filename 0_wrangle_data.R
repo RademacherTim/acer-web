@@ -4,7 +4,7 @@
 
 # tasks ------------------------------------------------------------------------
 # TR - Add data from Yvon Grenier, if I can get my hands on it.
-# TR - Get some additional meta-data for trees in Vallée-Jonction
+# TR - Get some additional meta-data (dbh) for trees in Vallée-Jonction
 # TR - Get some additional meta-data for trees in Montreal
 
 # load dependencies ------------------------------------------------------------
@@ -162,7 +162,7 @@ for (t in unique(HF_data_t$tree)) {
   }
   if (length(HF_data_t$date[con]) > 1) {
     fit <- lm(dbh ~ date, data = HF_data_t[con, ])
-    abline(fit, lty = 2, col = "#91b9a4")
+    if (PLOT) abline(fit, lty = 2, col = "#91b9a4")
   }
   # print coefficients ---------------------------------------------------------
   #print (fit$coefficients)
@@ -180,19 +180,22 @@ for (t in unique(HF_data_t$tree)) {
   yrs <- yrs[!(yrs %in% yrs[duplicated(yrs)])]
   
   # create dates for which we interpolate the dbh ------------------------------ 
-  dates <- tibble (date = as_date(paste(yrs,"-03-01"))) 
-  # choose the first of march here, but dbh should not vary in winter anyway
+  if (length(yrs) > 0) {
+    dates <- tibble (date = as_date(paste(yrs,"-03-01"))) 
+    # choose the first of march here, but dbh should not vary in winter anyway
   
-  # predict dbh on these dates -------------------------------------------------
-  for (y in yrs) {
-    HF_data_t$dbh[con & HF_data_t$year == y] <- 
-      predict(fit, dates[lubridate::year(dates$date) == y, ])  
-    # plot the points to check that this works
-    points(x = HF_data_t$date[con & HF_data_t$year == y],
-           y = HF_data_t$dbh[con & HF_data_t$year == y], 
-           pch = 1 , lwd = 1 , col = "#91b9a4")
+    # predict dbh on these dates -----------------------------------------------
+    for (y in yrs) {
+      HF_data_t$dbh[con & HF_data_t$year == y] <- 
+        predict(fit, dates[lubridate::year(dates$date) == y, ])  
+      # plot the points to check that this works
+      if (PLOT) {
+        points(x = HF_data_t$date[con & HF_data_t$year == y],
+               y = HF_data_t$dbh[con & HF_data_t$year == y], 
+               pch = 1 , lwd = 1 , col = "#91b9a4")
+      }
+    }
   }
-  
 }
 
 # add datetime column ----------------------------------------------------------
@@ -496,7 +499,7 @@ seasonal_data <- seasonal_data %>% filter(sap_volume > 0)
 seasonal_data$log_yield <- log(seasonal_data$sap_volume)
 
 # remove single data point from Norway maple -----------------------------------
-seasonal_data <- seasonal_data %>% filter(spp != "ACPL")
+#seasonal_data <- seasonal_data %>% filter(spp != "ACPL")
 
 # group by sites and year to get sao run dates for each location ---------------
 mid_season <- sap_data %>% 
