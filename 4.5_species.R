@@ -39,7 +39,8 @@ data4.5 <- seasonal_data %>%
 
 # differences in sap yield between species  ------------------------------------
 # fit a lognormal distibution accounting for difference in tree size
-# this is identical to section 4.1
+# this is identical to section 4.1, but I might consider not using dbh to be 
+# able to include more data, as only relatively few trees have dbh measurements 
 mod4.5.1 <- brms::brm(brms::bf(sap_volume ~
                                  (1 | year) +  # interannual differences in sap yield
                                  dbh + 

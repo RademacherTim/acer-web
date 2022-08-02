@@ -4,6 +4,8 @@
 
 # tasks ------------------------------------------------------------------------
 # TR - Add data from Yvon Grenier, if I can get my hands on it.
+# TR - Get some additional meta-data for trees in Vallée-Jonction
+# TR - Get some additional meta-data for trees in Montreal
 
 # load dependencies ------------------------------------------------------------
 if (!existsFunction("%>%")) library ("tidyverse")
@@ -139,6 +141,59 @@ HF_data_t <- HF_data_t %>% group_by(tree, year) %>% mutate(n_taps = case_when(
   "B" %in% tap ~ 2,
   "A" %in% tap ~ 1,
 )) %>% ungroup()
+
+# plot dbh with simple linear interpolation ------------------------------------
+PLOT <- FALSE
+for (t in unique(HF_data_t$tree)) {
+  con <- HF_data_t$tree == t
+  if(PLOT){
+    plot(x = HF_data_t$date[con], 
+         y = HF_data_t$dbh[con],
+         xlab = "date", ylab = "dbh (cm)", 
+         xlim = c(as_date("2012-01-01"), as_date("2023-01-01")), ylim = c(20,100),
+         axes = FALSE, pch = 19, col = "#91b9a4", main = t)
+    axis(side = 1, 
+         at = c(as_date("2012-01-01"), as_date("2013-01-01"), as_date("2014-01-01"), 
+                as_date("2015-01-01"), as_date("2016-01-01"), as_date("2017-01-01"), 
+                as_date("2018-01-01"), as_date("2019-01-01"), as_date("2020-01-01"), 
+                as_date("2021-01-01"), as_date("2022-01-01"), as_date("2023-01-01")),
+         labels = 2012:2023)
+    axis(side = 2, las = 1)
+  }
+  if (length(HF_data_t$date[con]) > 1) {
+    fit <- lm(dbh ~ date, data = HF_data_t[con, ])
+    abline(fit, lty = 2, col = "#91b9a4")
+  }
+  # print coefficients ---------------------------------------------------------
+  #print (fit$coefficients)
+  
+  # get years that this tree was sampled ---------------------------------------
+  yrs <- unique(lubridate::year(HF_data_s$date[HF_data_s$tree == t]))
+  
+  # remove years for which we have actual dbh-meansurements --------------------
+  dupli_yrs <- HF_data_t %>% 
+    filter(tree == t & !is.na(dbh)) %>% 
+    select(year) %>% unlist() %>% unique()
+  dupli_yrs <- as.numeric(levels(dupli_yrs))[dupli_yrs] # extract integer values for duplicate years
+  dupli_yrs <- dupli_yrs[dupli_yrs %in% yrs] # remove years for which there is no sapflow data
+  yrs <- c(yrs, dupli_yrs) # concatenate years and duplicates
+  yrs <- yrs[!(yrs %in% yrs[duplicated(yrs)])]
+  
+  # create dates for which we interpolate the dbh ------------------------------ 
+  dates <- tibble (date = as_date(paste(yrs,"-03-01"))) 
+  # choose the first of march here, but dbh should not vary in winter anyway
+  
+  # predict dbh on these dates -------------------------------------------------
+  for (y in yrs) {
+    HF_data_t$dbh[con & HF_data_t$year == y] <- 
+      predict(fit, dates[lubridate::year(dates$date) == y, ])  
+    # plot the points to check that this works
+    points(x = HF_data_t$date[con & HF_data_t$year == y],
+           y = HF_data_t$dbh[con & HF_data_t$year == y], 
+           pch = 1 , lwd = 1 , col = "#91b9a4")
+  }
+  
+}
 
 # add datetime column ----------------------------------------------------------
 HF_data_s <- HF_data_s %>%  
