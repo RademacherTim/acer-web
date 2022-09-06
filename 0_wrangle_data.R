@@ -4,7 +4,7 @@
 
 # tasks ------------------------------------------------------------------------
 # TR - Add data from Yvon Grenier, if I can get my hands on it.
-# TR - Get some additional meta-data (dbh) for trees in Vallée-Jonction
+# TR - Add data from DRF one day
 # TR - Get some additional meta-data for trees in Montreal
 
 # load dependencies ------------------------------------------------------------
@@ -29,10 +29,10 @@ AW_data_w <- read_sheet (ss = sheet_url, sheet = "03_wound_data",
                          col_types = "icccDdddcdcccdccc")
 AW_data_t <- read_sheet (ss = sheet_url, sheet = "05_tree_data",  
                          na = "NA",
-                         col_types = "iccciccddddddd")
+                         col_types = "iccciccdddddddd")
 AW_site_data <- read_sheet (ss = sheet_url, sheet = "06_site_data",  
                             na = "NA",
-                            col_types = "ccdddDcDic")
+                            col_types = "iccdddDcDic")
 
 # add bark_thickness to tree_data from wound_data ------------------------------
 AW_data_t <- left_join(AW_data_t, AW_data_w, 
