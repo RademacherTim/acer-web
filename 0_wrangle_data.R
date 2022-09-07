@@ -5,7 +5,6 @@
 # tasks ------------------------------------------------------------------------
 # TR - Add data from Yvon Grenier, if I can get my hands on it.
 # TR - Add data from DRF one day
-# TR - Get some additional meta-data for trees in Montreal
 
 # load dependencies ------------------------------------------------------------
 if (!existsFunction("%>%")) library ("tidyverse")
@@ -197,6 +196,9 @@ for (t in unique(HF_data_t$tree)) {
     }
   }
 }
+
+# remove temporary variables ---------------------------------------------------
+rm(dates, fit, dupli_yrs)
 
 # add datetime column ----------------------------------------------------------
 HF_data_s <- HF_data_s %>%  
@@ -442,10 +444,10 @@ OU_data <- OU_data %>%
          date = as_date(date),
          year = factor(lubridate::year(date)),
          tap_date = as_date(ifelse(year == 2020,
-                           NA, # Élise still waiting to hear from intern
+                           "2020-02-29", # Possibly already started 2020-02-29 for some 
                            "2021-03-06")),
          tap_removal = as_date(ifelse(year == 2020,
-                              NA, # Élise still waiting to hear from intern
+                              "2020-04-17", # Might also have been 2020-04-16 
                               "2021-04-27")),
          datetime = as_datetime(paste(date, time), 
                                 format = "%Y-%m-%d %H:%M", 
@@ -474,8 +476,10 @@ sap_data <- sap_data %>% mutate(
   days_since_tapping = as.integer(difftime(date, tap_date, units = "days"))
 )
 
-# make sure all trees have unique tree IDs -------------------------------------
-sap_data <- sap_data %>% mutate(tree = paste(site, tree, sep = "_"))
+# make sure all trees and taps have unique IDs ---------------------------------
+sap_data <- sap_data %>% 
+  mutate(tree = paste(site, tree, sep = "_"),
+         tap = paste(site, tree, tap, sep = "_"))
 
 # create a seasonal summary for each tap ---------------------------------------
 seasonal_data <- sap_data %>% 
@@ -581,5 +585,10 @@ sap_data %>% group_by(year) %>% n_groups() # number of years
 sap_data %>% filter(spp == "ACSA") %>% group_by(site, tree) %>% n_groups() # number of sugar maples
 sap_data %>% filter(spp == "ACRU") %>% group_by(site, tree) %>% n_groups() # number of red maples
 sap_data %>% filter(spp == "ACPL") %>% group_by(site, tree) %>% n_groups() # number of Norway maples
+
+# clean working space ----------------------------------------------------------
+rm(con, PLOT, sheet_url, t, y, yrs, AN_data, AW_data, AW_data_s, AW_data_t, 
+   AW_data_w, AW_site_data, HF_data, HF_data_s, HF_data_t, mid_season, MV_data,
+   OU_data, OU_data_s, OU_datas2020, OU_data_s2021, OU_data_t)
 
 #===============================================================================
