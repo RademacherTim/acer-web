@@ -4,6 +4,13 @@
 #
 # script to explore differences in sap yield and sugar content between the three 
 # maple species for which we found data. 
+#
+# Other species that have been tapped are: Juglans cinerea, cladrastis, 
+# Nyssa sylvatica, and Prunus serotina. 
+# 
+# Furthermore, during the same time as birchs the following genera also bleed, 
+# but less profusely than brich and grape: Ostrya, Hicoria, Alnus, Malus, 
+# Cratpegus, Salix, and Ulmus.
 #-------------------------------------------------------------------------------
 
 # load the wrangled data -------------------------------------------------------

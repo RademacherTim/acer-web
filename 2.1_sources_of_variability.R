@@ -87,8 +87,6 @@ pp_check(mod2.2, type = "error_hist",  ndraws = 10)
 pp_check(mod2.2, type = "scatter_avg", ndraws = 100)
 # Error in the posterior distribution looks normally-distributed
 
-# TR - Error with brix of 60 somewhere!
-
 # get model summary and coefficients -------------------------------------------
 summary(mod2.2)
 ranef(mod2.2)$spp[, , "Intercept"]
