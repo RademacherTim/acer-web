@@ -240,6 +240,11 @@ temp <- HF_data %>% group_by(tree, tap, year) %>%
 HF_data <- left_join(HF_data, temp, by = c("tree", "tap", "year"))
 rm(temp)
 
+# Correct typo in data (22 to 2.2) ---------------------------------------------
+HF_data$sap_brix[which(HF_data$tree == "HF33" & 
+                         HF_data$date == as_date("2018-03-24") &
+                         HF_data$tap == "A")] <- 2.2
+
 # re-arrange HF data for ease of comparison ------------------------------------
 HF_data <- HF_data %>% 
   dplyr::relocate(site, tree, tap, date, time, datetime, year, doy, lat, lon, 
@@ -456,6 +461,11 @@ OU_data <- OU_data %>%
          tap_bearing = ifelse(year == 2020, 90, # East
                               180)) # South
 
+# set two values for sap brix to NA, as they are high, but come from 5 and 1 ml 
+# sample respectively, thus are probably measurement errors --------------------
+OU_data$sap_brix[which(OU_data$tree %in% c("7","15") & 
+                         OU_data$date == as_date("2020-03-05"))] <- NA
+
 # re-arrange order to match the sap_data tibble --------------------------------
 OU_data <- OU_data %>% 
   dplyr::relocate(site, tree, tap, date, time, datetime, year, doy, lat, lon, 
@@ -589,6 +599,6 @@ sap_data %>% filter(spp == "ACPL") %>% group_by(site, tree) %>% n_groups() # num
 # clean working space ----------------------------------------------------------
 rm(con, PLOT, sheet_url, t, y, yrs, AN_data, AW_data, AW_data_s, AW_data_t, 
    AW_data_w, AW_site_data, HF_data, HF_data_s, HF_data_t, mid_season, MV_data,
-   OU_data, OU_data_s, OU_datas2020, OU_data_s2021, OU_data_t)
+   OU_data, OU_data_s, OU_data_s2020, OU_data_s2021, OU_data_t)
 
 #===============================================================================
