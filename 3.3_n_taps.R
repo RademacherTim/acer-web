@@ -102,7 +102,7 @@ mod3.3.1b <- brms::brm(brms::bf(sap_volume ~
                   iter = 6000, 
                   seed = 1353,
                   backend = "cmdstanr")
-# TR - The fact that the number of taps was not a randomised treatment in any of 
+# N.B.: The fact that the number of taps was not a randomised treatment in any of 
 # the component data sets may cause some or all of the  convergence problems. 
 # Overall, there is nothing suggesting that the model does not fit the data though. 
 
@@ -134,7 +134,7 @@ mod3.3.2a <- brms::brm(brms::bf(sap_brix | trunc(lb = 0) ~
                                  set_prior("normal(0, 2)", class = "sd"),
                                  set_prior("normal(0, 1)", class = "sd", coef = "Intercept", group = "n_taps")),
                        cores = 4, chains = 4,
-                       control = list(adapt_delta = 0.9),
+                       control = list(adapt_delta = 0.95, max_treedepth = 11),
                        iter = 6000,
                        seed = 1353,
                        backend = "cmdstanr")

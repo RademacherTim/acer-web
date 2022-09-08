@@ -34,7 +34,7 @@ data3.4 <- seasonal_data %>% filter(!is.na(tap_bearing)) %>%
          sap_volume_l, sap_brix_l, tap_bearing) %>%
   mutate(tree = factor(tree))
 
-# effect of tap orientation (tap_bearing) on sap yield ------------
+# effect of tap orientation (tap_bearing) on sap yield -------------------------
 # fit a lognormal distibution (NOT accounting for site latitude)
 mod3.4.1a <- brms::brm(brms::bf(sap_volume ~
                                  (1 | year) +  # interannual differences in sap yield
@@ -50,10 +50,11 @@ mod3.4.1a <- brms::brm(brms::bf(sap_volume ~
                                  set_prior("normal(0, 2)", class = "b"),
                                  set_prior("normal(0, 2)", class = "sd")), # the interannual difference falls within -20L to +20L with 95% chance
                        cores = 4, chains = 4,
-                       control = list(adapt_delta = 0.9),
+                       control = list(adapt_delta = 0.95), max_treedepth = 11,
                        iter = 6000,
                        seed = 1353,
                        backend = "cmdstanr")
+
 # posterior distribution checks ------------------------------------------------
 plot(mod3.4.1a)
 plot(conditional_effects(mod3.4.1a))$tap_bearing + ggplot2::ylim(0, 50)
@@ -68,7 +69,7 @@ pp_check(mod3.4.1a, type = "scatter_avg", ndraws = 100)
 summary(mod3.4.1a)
 
 # effect of tap orientation (tap_bearing) on early-season sap yield ------------
-# fit a lognormal distibution 
+# fit a lognormal distibution (NOT accounting for site latitude)
 mod3.4.1a_e <- brms::brm(brms::bf(sap_volume_e ~
                                   (1 | year) +  # interannual differences in sap yield
                                   s(tap_bearing) + # non-linear effect of tap orientation
@@ -101,8 +102,8 @@ pp_check(mod3.4.1a_e, type = "scatter_avg", ndraws = 100)
 # get model summary and coefficients -------------------------------------------
 summary(mod3.4.1a_e)
 
-# effect of tap orientation (tap_bearing) on early-season sap yield ------------
-# fit a lognormal distibution 
+# effect of tap orientation (tap_bearing) on late-season sap yield -------------
+# fit a lognormal distibution (NOT accounting for site latitude)
 mod3.4.1a_l <- brms::brm(brms::bf(sap_volume_l ~
                                    (1 | year) +  # interannual differences in sap yield
                                    s(tap_bearing) + # non-linear effect of tap orientation
@@ -135,7 +136,7 @@ pp_check(mod3.4.1a_l, type = "scatter_avg", ndraws = 100)
 # get model summary and coefficients -------------------------------------------
 summary(mod3.4.1a_l)
 
-# effect of tap orientation (tap_bearing) on sap yield ------------
+# effect of tap orientation (tap_bearing) on sap yield -------------------------
 # fit a lognormal distibution (accounting for site latitude)
 mod3.4.1b <- brms::brm(brms::bf(sap_volume ~
                                  (1 | year) +  # interannual differences in sap yield
@@ -151,7 +152,7 @@ mod3.4.1b <- brms::brm(brms::bf(sap_volume ~
                                 set_prior("normal(0, 2)", class = "b"),
                                 set_prior("normal(0, 2)", class = "sd")), # the interannual difference falls within -20L to +20L with 95% chance
                       cores = 4, chains = 4,
-                      control = list(adapt_delta = 0.9),
+                      control = list(adapt_delta = 0.99, max_treedepth = 11),
                       iter = 6000,
                       seed = 1353,
                       backend = "cmdstanr")
@@ -170,7 +171,7 @@ pp_check(mod3.4.1b, type = "scatter_avg", ndraws = 100)
 summary(mod3.4.1b)
 
 # effect of tap orientation (tap_bearing) on early-season sap yield ------------
-# fit a lognormal distibution 
+# fit a lognormal distibution (accounting for site latitude)
 mod3.4.1b_e <- brms::brm(brms::bf(sap_volume_e ~
                                     (1 | year) +  # interannual differences in sap yield
                                     s(tap_bearing * lat) + # non-linear effect of tap orientation
@@ -203,8 +204,8 @@ pp_check(mod3.4.1b_e, type = "scatter_avg", ndraws = 100)
 # get model summary and coefficients -------------------------------------------
 summary(mod3.4.1b_e)
 
-# effect of tap orientation (tap_bearing) on early-season sap yield ------------
-# fit a lognormal distibution 
+# effect of tap orientation (tap_bearing) on late-season sap yield -------------
+# fit a lognormal distibution (accounting for site latitude)
 mod3.4.1b_l <- brms::brm(brms::bf(sap_volume_l ~
                                     (1 | year) +  # interannual differences in sap yield
                                     s(tap_bearing * lat) + # non-linear effect of tap orientation
@@ -237,8 +238,9 @@ pp_check(mod3.4.1b_l, type = "scatter_avg", ndraws = 100)
 # get model summary and coefficients -------------------------------------------
 summary(mod3.4.1b_l)
 
-# effect of the number of taps on sugar content --------------------------------
+# effect of tap hole orientation on sap sugar content --------------------------
 # fit a truncated normal distibution, as brix cannot be negative
+# not accounting for site latitude here
 mod3.4.2 <- brms::brm(brms::bf(sap_brix | trunc(lb = 0) ~
                                  (1 | year) + 
                                  s(tap_bearing) + 
@@ -252,7 +254,7 @@ mod3.4.2 <- brms::brm(brms::bf(sap_brix | trunc(lb = 0) ~
                                 set_prior("normal(0, 2)", class = "b"),
                                 set_prior("normal(0, 2)", class = "sd")),
                       cores = 4, chains = 4,
-                      control = list(adapt_delta = 0.9),
+                      control = list(adapt_delta = 0.95, max_treedepth = 11),
                       iter = 6000,
                       seed = 1353,
                       backend = "cmdstanr")
@@ -271,8 +273,9 @@ pp_check(mod3.4.2, type = "scatter_avg", ndraws = 100)
 summary(mod3.4.2)
 ranef(mod3.4.2)
 
-# effect of the number of taps on early-season sugar content -------------------
+# effect of tap hole orientation on early-season sap sugar content -------------
 # fit a truncated normal distibution, as brix cannot be negative
+# not accounting for site latitude here
 mod3.4.2_e <- brms::brm(brms::bf(sap_brix_e | trunc(lb = 0) ~
                                  (1 | year) + 
                                  s(tap_bearing) + 
@@ -286,7 +289,7 @@ mod3.4.2_e <- brms::brm(brms::bf(sap_brix_e | trunc(lb = 0) ~
                                 set_prior("normal(0, 2)", class = "b"),
                                 set_prior("normal(0, 2)", class = "sd")),
                       cores = 4, chains = 4,
-                      control = list(adapt_delta = 0.9),
+                      control = list(adapt_delta = 0.95, max_treedepth = 11),
                       iter = 6000,
                       seed = 1353,
                       backend = "cmdstanr")
@@ -304,8 +307,9 @@ pp_check(mod3.4.2_e, type = "scatter_avg", ndraws = 100)
 # get model summary and coeficcients -------------------------------------------
 summary(mod3.4.2_e)
 
-# effect of the number of taps on late-season sugar content --------------------
+# effect of tap hole orientation on late-season sap sugar content --------------
 # fit a truncated normal distibution, as brix cannot be negative
+# not accounting for site latitude here
 mod3.4.2_l <- brms::brm(brms::bf(sap_brix_l | trunc(lb = 0) ~
                                    (1 | year) + 
                                    s(tap_bearing) + 
