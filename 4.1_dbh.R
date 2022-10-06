@@ -50,7 +50,7 @@ mod4.1.1 <- brms::brm(brms::bf(sap_volume ~
                                 set_prior("normal(0, 2)", class = "b"),
                                 set_prior("normal(0, 2)", class = "sd")), # the interannual difference falls within -20L to +20L with 95% chance
                       cores = 4, chains = 4,
-                      control = list(adapt_delta = 0.98),
+                      control = list(adapt_delta = 0.98, max_treedepth = 11),
                       iter = 6000,
                       seed = 1353,
                       backend = "cmdstanr")
@@ -67,6 +67,7 @@ pp_check(mod4.1.1, type = "scatter_avg", ndraws = 100)
 
 # get model summary and coefficients -------------------------------------------
 summary(mod4.1.1)
+ranef(mod4.1.1)$spp [, , "Intercept"]
 
 # effect of size (dbh) on sugar content ----------------------------------------
 # fit a truncated normal distibution, as brix cannot be negative
@@ -85,7 +86,7 @@ mod4.1.2 <- brms::brm(brms::bf(sap_brix | trunc(lb = 0) ~
                                 set_prior("normal(0, 2)", class = "b"),
                                 set_prior("normal(0, 2)", class = "sd")),
                       cores = 4, chains = 4,
-                      control = list(adapt_delta = 0.99, max_treedepth = 11),
+                      control = list(adapt_delta = 0.99, max_treedepth = 12),
                       iter = 6000,
                       seed = 1353,
                       backend = "cmdstanr")

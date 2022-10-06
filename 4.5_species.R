@@ -16,6 +16,9 @@
 # load the wrangled data -------------------------------------------------------
 source("0_wrangle_data.R")
 
+# load dependencies ------------------------------------------------------------
+library("brms")
+
 # get the number of individual trees from each species -------------------------
 sap_data %>% filter(!is.na(sap_volume) & sap_volume > 0) %>% count() # number of data points
 seasonal_data %>% filter(!is.na(sap_volume) & sap_volume > 0) %>% count() # number of data points
@@ -61,7 +64,7 @@ mod4.5.1 <- brms::brm(brms::bf(sap_volume ~
                                 set_prior("normal(0, 2)", class = "b"),
                                 set_prior("normal(0, 2)", class = "sd")), # the interannual difference falls within -20L to +20L with 95% chance
                       cores = 4, chains = 4,
-                      control = list(adapt_delta = 0.98),
+                      control = list(adapt_delta = 0.98, max_treedepth = 11),
                       iter = 6000,
                       seed = 1353,
                       backend = "cmdstanr")
@@ -79,7 +82,7 @@ pp_check(mod4.5.1, type = "scatter_avg", ndraws = 100)
 summary(mod4.5.1)
 ranef(mod4.5.1)$spp [, , "Intercept"]
 
-# effect of the number of taps on sugar content --------------------------------
+# differences in sugar content between species ---------------------------------
 # fit a truncated normal distibution, as brix cannot be negative
 mod4.5.2 <- brms::brm(brms::bf(sap_brix | trunc(lb = 0) ~
                                  (1 | year) + 

@@ -597,7 +597,7 @@ sap_data %>% filter(spp == "ACRU") %>% group_by(site, tree) %>% n_groups() # num
 sap_data %>% filter(spp == "ACPL") %>% group_by(site, tree) %>% n_groups() # number of Norway maples
 
 # clean working space ----------------------------------------------------------
-rm(con, PLOT, sheet_url, t, y, yrs, AN_data, AW_data, AW_data_s, AW_data_t, 
+rm(con, PLOT, sheet_url, t, y, yrs, AN_data, AW_data_s, AW_data_t, 
    AW_data_w, AW_site_data, HF_data, HF_data_s, HF_data_t, mid_season, MV_data,
    OU_data, OU_data_s, OU_data_s2020, OU_data_s2021, OU_data_t)
 

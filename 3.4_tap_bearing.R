@@ -140,7 +140,7 @@ summary(mod3.4.1a_l)
 # fit a lognormal distibution (accounting for site latitude)
 mod3.4.1b <- brms::brm(brms::bf(sap_volume ~
                                  (1 | year) +  # interannual differences in sap yield
-                                 s(tap_bearing * lat) + # non-linear effect of tap orientation and its interaction with latitude
+                                 s(tap_bearing, by = lat) + # non-linear effect of tap orientation and its interaction with latitude
                                  # choosing a non-linear effect, because east and west may have different effects
                                  (1 | tree) +  # tree-specific effects
                                  (1 | spp) +   # species-specific effects 
@@ -174,7 +174,7 @@ summary(mod3.4.1b)
 # fit a lognormal distibution (accounting for site latitude)
 mod3.4.1b_e <- brms::brm(brms::bf(sap_volume_e ~
                                     (1 | year) +  # interannual differences in sap yield
-                                    s(tap_bearing * lat) + # non-linear effect of tap orientation
+                                    s(tap_bearing, by = lat) + # non-linear effect of tap orientation
                                     # choosing a non-linear effect, because east and west may have different effects
                                     (1 | tree) +  # tree-specific effects
                                     (1 | spp) +   # species-specific effects 
@@ -208,7 +208,7 @@ summary(mod3.4.1b_e)
 # fit a lognormal distibution (accounting for site latitude)
 mod3.4.1b_l <- brms::brm(brms::bf(sap_volume_l ~
                                     (1 | year) +  # interannual differences in sap yield
-                                    s(tap_bearing * lat) + # non-linear effect of tap orientation
+                                    s(tap_bearing, by = lat) + # non-linear effect of tap orientation
                                     # choosing a non-linear effect, because east and west may have different effects
                                     (1 | tree) +  # tree-specific effects
                                     (1 | spp) +   # species-specific effects 
@@ -271,7 +271,6 @@ pp_check(mod3.4.2, type = "scatter_avg", ndraws = 100)
 
 # get model summary and coeficcients -------------------------------------------
 summary(mod3.4.2)
-ranef(mod3.4.2)
 
 # effect of tap hole orientation on early-season sap sugar content -------------
 # fit a truncated normal distibution, as brix cannot be negative
