@@ -20,7 +20,7 @@ site_data <- sap_data %>%
             n_trees = n_distinct(tree),
             n_taps = n_distinct(tree, tap),
             n_years = n_distinct(year),
-            n_obs = n_distinct(tree, tap, year),
+            n_obs = n_distinct(tree, tap, year, date),
             .groups = "drop")
 
 # choose sugar or red maple leaf icon:

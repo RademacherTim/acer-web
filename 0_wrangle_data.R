@@ -36,12 +36,12 @@ AW_site_data <- read_sheet (ss = sheet_url, sheet = "06_site_data",
 # add bark_thickness to tree_data from wound_data ------------------------------
 AW_data_t <- left_join(AW_data_t, AW_data_w, 
                        by = c("year", "site", "tree", "tap")) %>%
-  select(-tap_closure_1, -tap_closure_2, -wound, -wound_distance, -wound_angle, 
+  dplyr::select(-tap_closure_1, -tap_closure_2, -wound, -wound_distance, -wound_angle, 
          -wound_orientation, -c_wound, -c_wound_distance, -c_wound_angle, 
          -c_wound_orientation, -comments, -date)
 
 # add tapping date and tap removal date ----------------------------------------
-AW_data_s <- left_join(AW_data_s, AW_site_data, by = c("site")) %>% 
+AW_data_s <- dplyr::left_join(AW_data_s, AW_site_data, by = c("site")) %>% 
   select(-site_name, -n_trees)
 
 # create datetime column, convert time column, and add year as factor ----------
@@ -602,3 +602,4 @@ rm(con, PLOT, sheet_url, t, y, yrs, AN_data, AW_data_s, AW_data_t,
    OU_data, OU_data_s, OU_data_s2020, OU_data_s2021, OU_data_t)
 
 #===============================================================================
+
