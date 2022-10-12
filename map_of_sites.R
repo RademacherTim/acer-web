@@ -13,15 +13,16 @@ source("0_wrangle_data.R")
 
 # create dataframe of site coordinates -----------------------------------------
 site_data <- sap_data %>% 
-  group_by(site) %>% 
-  summarise(lat = mean(lat), 
-            lon = mean(lon),
-            alti = mean(alti),
-            n_trees = n_distinct(tree),
-            n_taps = n_distinct(tree, tap),
-            n_years = n_distinct(year),
-            n_obs = n_distinct(tree, tap, year, date),
-            .groups = "drop")
+  dplyr::group_by(site) %>% 
+  dplyr::summarise(
+    lat = mean(lat), 
+    lon = mean(lon),
+    alti = mean(alti),
+    n_trees = dplyr::n_distinct(tree),
+    n_taps = dplyr::n_distinct(tree, tap),
+    n_years = dplyr::n_distinct(year),
+    n_obs = dplyr::n_distinct(tree, tap, year, date),
+    .groups = "drop")
 
 # choose sugar or red maple leaf icon:
 # leafIcons <- icons(
@@ -51,23 +52,23 @@ m <- leaflet(data = site_data) %>%
   addTiles() %>%  # Add default OpenStreetMap map tiles
   addCircleMarkers(lng = ~lon, 
              lat = ~lat, 
-             radius = ~case_when(n_obs < 40 ~ 5,
-                                 n_obs < 80 ~ 10,
-                                 n_obs < 160 ~ 15,
-                                 n_obs < 320 ~ 20),
+             radius = ~dplyr::case_when(
+               n_obs < 320 ~ 6,
+               n_obs < 640 ~ 9,
+               n_obs < 1280 ~ 12,
+               n_obs < 2560 ~ 15,
+               n_obs < 10000 ~ 18),
               stroke = FALSE,
               fillOpacity = 0.6,
               fillColor = "#CC7240") %>%
   addLegendCustom(#"bottomright", 
             colors = "#CC7240", 
-            labels = c("< 40","< 80","< 160","< 320"),
-            sizes = c(5, 10, 15, 20),
+            labels = c("< 320","< 640","< 1280","< 2560", ">2560"),
+            sizes = seq(6, 18, by = 3),
             title = "Number of observations",
             opacity = 0.6) #%>%
   #addGeotiff(file = filenames[1])
 m
-# TR - The legend is not quite right yet, as it does not show the markers or 
-# their sizes
 
 # save the map as image --------------------------------------------------------
 #saveWidget(m, "temp.html", selfcontained = FALSE)
