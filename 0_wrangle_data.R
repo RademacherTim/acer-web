@@ -5,10 +5,7 @@
 # tasks ------------------------------------------------------------------------
 # TR - Add data from Yvon Grenier, if I can get my hands on it.
 # TR - Add data from DRF one day
-# TR - Additional data from other ACERnet sites
-# TR - Figure out while the acer-web 01_sap_data gives the following warning:
-#     Warning message:
-#     In .Primitive("as.double")(x, ...) : NAs introduced by coercion
+# TR - Additional data from other ACERnet sites (still waiting to hear from Bill)
 
 # load dependencies ------------------------------------------------------------
 if (!existsFunction("%>%")) library ("tidyverse")
@@ -276,6 +273,16 @@ sap_data <- dplyr::full_join(AW_data, HF_data,
 # read AcerNet data ------------------------------------------------------------
 # N.B.: This data does not include tree sizes or any metadata. It is only sap 
 # flow data --------------------------------------------------------------------
+# 
+# Site PIs:
+# Harvard Forest                   - Joshua Rapp (jrapp@massaudubon.org)
+# Dartmouth Organic Farm           - David A. Lutz (david.a.lutz@dartmouth.edu)
+# Quebec                           - Boris Dufour (Boris_Dufour@uqar.ca)
+# Divide Ridge                     - Ryan Huish (rdh5b@uvawise.edu)
+# Indiana Dunes National Lakeshore - Wendy Smith (wendy_w_smith@nps.gov)
+# Southernmost Maple               - Ryan Huish (rdh5b@uvawise.edu)
+# Composition : Selena Ahmed (selena.ahmed@montana.edu)
+# ------------------------------------------------------------------------------ 
 AN_data <- readr::read_csv("./data/AcerNet/ACERnet_sap_2012_2017_ID.csv", 
                     col_types = readr::cols()) %>% 
   dplyr::mutate(date = as_date(Date, format = "%m/%d/%Y"),
@@ -465,8 +472,11 @@ OU_data <- OU_data %>% tibble::add_column(
   spp = "ACSA",
   tap_depth = 5.0, # or 2"
   tap_height = 140, # Approximately at breast height
-  tap_width =  0.79375 # or 5/16"
+  tap_width = 0.79375 # or 5/16"
 )
+
+# Change species for incorrectly-identified tree (51) according to Élise -------
+OU_data$spp[OU_data$tree == 51] <- "ACRU"
 
 # add columns for datetime, year, tap_date, tap_removal, doy, tap_bearing ------
 OU_data <- OU_data %>% 
@@ -540,7 +550,7 @@ seasonal_data <- seasonal_data %>% dplyr::filter(sap_volume > 0)
 seasonal_data$log_yield <- log(seasonal_data$sap_volume)
 
 # remove single data point from Norway maple -----------------------------------
-#seasonal_data <- seasonal_data %>% filter(spp != "ACPL")
+seasonal_data <- seasonal_data %>% filter(spp != "ACPL")
 
 # group by sites and year to get sao run dates for each location ---------------
 mid_season <- sap_data %>% 
@@ -610,6 +620,9 @@ if(PLOT){
   axis(side = 2, las = 1)
   abline(b = 1, a = 0, col = "#999999", lty = 2, lwd = 2)
 }
+
+# remove Norway maple for now --------------------------------------------------
+sap_data <- sap_data %>% filter(spp != "ACPL")
 
 # get some basic stats for intro -----------------------------------------------
 sap_data %>% dplyr::filter(sap_volume > 0 & !is.na (sap_volume)) %>% dplyr::count() # number of daily sap volume measurements

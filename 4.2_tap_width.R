@@ -1,6 +1,6 @@
 #===============================================================================
 #
-# Section 3.2: Tap width
+# Section 4.2: Tap width
 #
 # script to explore relationship between sap yield or sugar content and tap hole 
 # width

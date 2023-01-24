@@ -1,6 +1,6 @@
 # #===============================================================================
 #
-# Section 4.3: Reproductive effort on sap yield and sugar content at Harvard 
+# Section 5.3: Reproductive effort on sap yield and sugar content at Harvard 
 #              Forest
 #
 # script to explore relationship between reproductive effort (i.e. flower and 

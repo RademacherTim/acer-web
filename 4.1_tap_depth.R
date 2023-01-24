@@ -1,6 +1,6 @@
 #===============================================================================
 #
-# Section 3.1: Tap depth
+# Section 4.1: Tap depth
 #
 # script to explore relationship between sap yield or sugar content and tap hole 
 # depth
