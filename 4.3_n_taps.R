@@ -76,7 +76,6 @@ pp_check(mod4.3.1a, type = "scatter_avg", ndraws = 100)
 # get model summary and coefficients -------------------------------------------
 summary(mod4.3.1a)
 ranef(mod4.3.1a)$n_taps[, , "Intercept"]
-ranef(mod4.3.1a)$tree[, , "Intercept"]
 ranef(mod4.3.1a)$spp[, , "Intercept"]
 ranef(mod4.3.1a)$site[, , "Intercept"]
 
@@ -173,7 +172,7 @@ mod4.3.2b <- brms::brm(brms::bf(sap_brix | trunc(lb = 0) ~
 
 # posterior distribution checks ------------------------------------------------
 plot(mod4.3.2b)
-plot(conditional_effects(mod3.3.2b))$dbh + ggplot2::ylim(0, 5)
+plot(conditional_effects(mod4.3.2b))$dbh + ggplot2::ylim(0, 5)
 
 # additional posterior distribution checks -------------------------------------
 pp_check(mod4.3.2b, ndraws = 100)
