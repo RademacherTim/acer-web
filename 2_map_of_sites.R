@@ -4,7 +4,7 @@
 
 # load dependencies ------------------------------------------------------------
 #if (!existsFunction("leaflet")) library("RColorBrewer") # for colour schemes
-if (!existsFunction("leaflet")) library("leaflet") # for mapping
+if (!existsFunction("leaflet")) library ("leaflet") # for mapping
 #library("webshot") # save saving leaflet map
 #if (!existsFunction("html_legend")) library("htmlwidgets")
 if (!existsFunction("spTransform")) library("sp")

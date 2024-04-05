@@ -10,59 +10,225 @@
 # load dependencies ------------------------------------------------------------
 if (!existsFunction("%>%")) library ("tidyverse")
 if (!existsFunction("yday")) library ("lubridate")
-if (!existsFunction("read_sheet")) library ("googlesheets4")
 if (!existsFunction("read_excel")) library ("readxl")
 if (!existsFunction("add.alpha")) library ("prettyGraphs")
 
-# authenthicate for spreadsheet and load the data from the acer-web sheet ------
-gs4_auth(cache = ".secrets", email = "rademacher.tim@gmail.com")
+# fait une liste de tous les fichiers du réseau acer-web -----------------------
+noms_fichiers <- list.files("./données/acer-web/coulée/",
+                            pattern = "^Fiche de donn.*\\.xlsx$")
 
-# set url to google spreadsheet ------------------------------------------------
-sheet_url <- "https://docs.google.com/spreadsheets/d/1Iup_x-uyfN-vk9oK7bQVfSP7XrihXAtJRVygnFNazig/edit#gid=1317380413"
+# coéfficients pour calculer la densité spécifique en fonction du brix d'après 
+# Allard (1999) ----
+a_coef <- 0.999992956631726
+b_coef <- -0.00925262369550272
+c_coef <- -0.00539288034998694
+d_coef <- 0.0000222308169457791
 
-# get acer-wab data from online sheet ------------------------------------------
-AW_data_s <- read_sheet (ss = sheet_url, sheet = "01_sap_data",  
-                         na = "NA",
-                         col_types = "cccDciildddddddlc")
-AW_data_w <- read_sheet (ss = sheet_url, sheet = "04_wound_data",  
-                         na = "NA",
-                         col_types = "icccDdddcdcccdccc")
-AW_data_t <- read_sheet (ss = sheet_url, sheet = "06_tree_data",  
-                         na = "NA",
-                         col_types = "iccciccddddddddc")
-AW_site_data <- read_sheet (ss = sheet_url, sheet = "07_site_data",  
-                            na = "NA",
-                            col_types = "iccdddDcDic")
-
-# add bark_thickness to tree_data from wound_data ------------------------------
-AW_data_t <- dplyr::left_join(AW_data_t, AW_data_w, 
-                       by = c("year", "site", "tree", "tap")) %>%
-  dplyr::select(-tap_closure_1, -tap_closure_2, -wound, -wound_distance, -wound_angle, 
-         -wound_orientation, -c_wound, -c_wound_distance, -c_wound_angle, 
-         -c_wound_orientation, -comment, -comments, -date)
-
-# add tapping date and tap removal date ----------------------------------------
-AW_data_s <- dplyr::left_join(AW_data_s, AW_site_data, by = c("site")) %>% 
-  dplyr::select(-site_name, -n_trees, -comments, -comment)
-
-# create datetime column, convert time column, and add year as factor ----------
-AW_data_s <- AW_data_s %>% 
-  dplyr::mutate(
-    datetime = make_datetime (year = year(date), 
-                              month = month(date),
-                              day = day(date), hour, minute),
-    time = format(datetime, "%H:%M"),
-    year = factor (lubridate::year(date)),
-    tree = factor(tree),
-    site = factor(site),
-    tap = factor(tap))
-AW_data_t <- AW_data_t %>% 
-  dplyr::mutate(year = factor(year),
-         tree = factor(tree),
-         site = factor(site),
-         tap = factor(tap),
-         dbh = cbh / pi,
-         tap_height = h_tap_ground)
+# boucle pour lire les fichiers du réseau acer-web -----------------------------
+for (s in 1:length(noms_fichiers)) {
+  
+  # extraire le site et l'année ----
+  site <- as.numeric(substr(strsplit(noms_fichiers[s], split = " ")[[1]][6], 2, 2))
+  année <- as.numeric(substr(strsplit(noms_fichiers[s], split = " ")[[1]][7], 1, 4))
+  
+  # nom du fichier ----
+  fichier <- paste0("./données/acer-web/coulée/", noms_fichiers[s])
+  
+  # détermine le nombre de colonne, leurs noms et leur types ---
+  if ((site == 1 & année %in% 2022:2023) | (site == 3)) {
+    noms <- c("ar", "e", "date", "heure", "coulée", "poids_p", "poids_v", 
+              "glace", "brix_chau1", "brix_chau2", "brix_chau3", "brix_chal1", 
+              "brix_chal2", "brix_chal3", "commentaires", "vol_s")
+    col_types_c <- c(
+        ar = "numeric",
+        e = "text",
+        date = "date",
+        heure = "date",
+        coulée = "logical",
+        poids_p = "numeric",
+        poids_v = "numeric",
+        glace = "guess",
+        brix_chau1 = "numeric",
+        brix_chau2 = "numeric",
+        brix_chau3 = "numeric",
+        brix_chal1 = "numeric",
+        brix_chal2 = "numeric",
+        brix_chal3 = "numeric",
+        commentaires = "text",
+        vol_s = "numeric"
+      )
+  } else if (site == 2 & année %in% 2022:2023) {
+    noms <- c("ar", "e", "date", "heure", "coulée", "poids_p", "poids_v", 
+              "glace", "brix_chau1", "brix_chau2", "brix_chau3", "brix_chal1", 
+              "brix_chal2", "brix_chal3", "commentaires", "brix")
+    col_types_c <- c(
+      ar = "numeric",
+      e = "text",
+      date = "date",
+      heure = "date",
+      coulée = "logical",
+      poids_p = "numeric",
+      poids_v = "numeric",
+      glace = "guess",
+      brix_chau1 = "numeric",
+      brix_chau2 = "numeric",
+      brix_chau3 = "numeric",
+      brix_chal1 = "numeric",
+      brix_chal2 = "numeric",
+      brix_chal3 = "numeric",
+      commentaires = "text",
+      brix = "numeric"
+    )
+  } else {
+    noms <- c("ar", "e", "date", "heure", "coulée", "poids_p", "poids_v", 
+              "glace", "brix_chau1", "brix_chau2", "brix_chau3", "brix_chal1", 
+              "brix_chal2", "brix_chal3", "commentaires")
+    col_types_c <- c(
+      ar = "numeric",
+      e = "text",
+      date = "date",
+      heure = "date",
+      coulée = "logical",
+      poids_p = "numeric",
+      poids_v = "numeric",
+      glace = "guess",
+      brix_chau1 = "numeric",
+      brix_chau2 = "numeric",
+      brix_chau3 = "numeric",
+      brix_chal1 = "numeric",
+      brix_chal2 = "numeric",
+      brix_chal3 = "numeric",
+      commentaires = "text"
+    )
+  }
+  
+  # lire les données de coulée ----
+  tmp_c <- read_excel(path = fichier, sheet = "01_coulée",
+                      col_names = noms,
+                      col_types = col_types_c,
+                      na = "NA",
+                      skip = 2) %>% 
+    # combine l'heure et la date ----
+    mutate(date = paste0(substr(date, 1, 10), substr(heure, 11, 16))) %>%
+    select(-heure)
+  
+  # calcule poids de la sève (i.e., différence de poids avec et sans sève) ----
+  tmp_c <- tmp_c %>% 
+    mutate(poids = poids_p - poids_v)
+  
+  # calcule le brix moyen dans la chaudière et au chalumeau ----
+  tmp_c <- tmp_c %>% rowwise() %>%
+    mutate(brix_chal = mean(c_across(brix_chal1:brix_chal3), na.rm = TRUE),
+           brix_chau = mean(c_across(brix_chau1:brix_chau3), na.rm = TRUE))
+  
+  # détermine le brix pour estimer la densité ---
+  if (!(site == 2 & année %in% 2022:2023)){ # TR- This might also be true for 2023
+    if (!(site == 1 & année == 2022)) { # Pas de mesure de la glace pour le site 1 en 2022
+      tmp_c <- tmp_c %>% 
+        mutate(brix = ifelse (coulée, brix_chal, brix_chau * (1 - glace)))
+    } else {
+      tmp_c <- tmp_c %>% 
+        mutate(brix = ifelse (coulée, brix_chal, brix_chau))
+    } # TR - Je devrais développer une estimation empirique du brix en fonction de la glace
+  }
+  
+  # estime le volume pour les années et sites où on a mesuré le poids ----
+  if((site == 1 & année == 2024) |
+     (site == 2)){
+    
+    # densité en fonction du brix d'après l'info-fiche d'Allard (1999) ----
+    tmp_c <- tmp_c %>%
+      mutate(rho_s = (a_coef + (c_coef * brix)) / 
+                     (1 + b_coef * brix + d_coef * brix**2),
+             vol_s = poids * rho_s * 1e3) %>% 
+      select(-rho_s)
+  }
+  
+  # ajoute le site et l'année aux données ----
+  tmp_c <- tmp_c %>% mutate(site = factor(site), année = factor(année),
+                            ar = factor(ar),
+                            e = factor(e)) 
+  
+  # ré-arrange les colonnes pour colliger les données ----
+  tmp_c <- tmp_c %>% 
+    relocate(site, année, ar, e, date, coulée, glace, brix_chau1, brix_chau2, brix_chau3, 
+             brix_chal1, brix_chal2, brix_chal3, commentaires, vol_s, poids, 
+             brix_chal, brix_chau, brix)
+  
+  # collige tous les données des coulées du réseau acer-web ----
+  if(s == 1){
+    AW_c <- tmp_c
+  } else {
+    AW_c <- rbind(AW_c, tmp_c)
+  }
+  
+  # lire les données de l'arbre ----
+  tmp_a <- read_excel(path = fichier, sheet = "02_arbres",
+                      col_names = c("ar", "e", "nombre_e", "poids_c", "espèce",
+                                    "dhp", "dhe", "hauteur_s", "orientation", 
+                                    "profondeur", "écorce", "d_e", 
+                                    "commentaires", "pastille", "espèce_latin", 
+                                    "espèce_abbr", "hauteur_t"),
+                      col_types =  c(
+                        ar = "numeric",
+                        e = "text",
+                        nombre_e = "numeric",
+                        poids_c = "numeric",
+                        espèce = "text",
+                        dhp = "numeric",
+                        dhe = "numeric",
+                        hauteur_s = "numeric",
+                        orientation = "numeric",
+                        profondeur = "numeric",
+                        écorce = "numeric",
+                        d_e = "numeric",
+                        commentaires = "text",
+                        pastille = "text",
+                        espèce_latin = "text",
+                        espèce_abbr = "text",
+                        hauteur_t = "numeric"),
+                      na = "NA",
+                      skip = 2) 
+  
+  # collige tous les données des arbres du réseau acer-web ----
+  if(s == 1){
+    AW_a <- tmp_a
+  } else {
+    AW_a <- rbind(AW_a, tmp_a)
+  }
+  
+  # lire les données du site ----
+  tmp_s <- read_excel(path = fichier, sheet = "03_site",
+                      col_names = c("site", "site_nom", "responsable", 
+                                    "courriel", "mobile", "lat", "lon", "alt", 
+                                    "date_entaillage", "heure_entaillage", 
+                                    "date_désentaillage", "nombre_arbre", 
+                                    "commentaires"),
+                      col_types =  c(
+                        site = "text",
+                        site_nom = "text",
+                        responsable = "text",
+                        courriel = "text",
+                        mobile = "text",
+                        lat = "numeric",
+                        lon = "numeric",
+                        alt = "numeric",
+                        date_entaillage = "date",
+                        heure_entaillage = "date",
+                        date_désentaillage = "date",
+                        nombre_arbre = "numeric",
+                        commentaires = "text"),
+                      na = "NA",
+                      skip = 2) %>%
+    select(-responsable, -courriel, -mobile)
+  
+  # collige tous les données des sites du réseau acer-web ----
+  if(s == 1){
+    AW_s <- tmp_s
+  } else {
+    AW_s <- rbind(AW_s, tmp_s)
+  }
+}
 
 # calculate mean sap succrose concentration (°Brix) ----------------------------
 AW_data_s <- AW_data_s %>% 
