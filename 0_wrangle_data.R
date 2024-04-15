@@ -14,11 +14,14 @@ if (!existsFunction("read_excel")) library ("readxl")
 if (!existsFunction("add.alpha")) library ("prettyGraphs")
 
 # fait une liste de tous les fichiers du réseau acer-web -----------------------
+# Site #1 : L'Assomption
+# Site #2 : Vallée-Jonction
+# Site #3 : Érable de Norvège dans le Sud-Ouest de Montréal
 noms_fichiers <- list.files("./données/acer-web/coulée/",
                             pattern = "^Fiche de donn.*\\.xlsx$")
 
 # coéfficients pour calculer la densité spécifique en fonction du brix d'après 
-# Allard (1999) ----
+# Allard (1999) ----------------------------------------------------------------
 a_coef <- 0.999992956631726
 b_coef <- -0.00925262369550272
 c_coef <- -0.00539288034998694
@@ -27,14 +30,14 @@ d_coef <- 0.0000222308169457791
 # boucle pour lire les fichiers du réseau acer-web -----------------------------
 for (s in 1:length(noms_fichiers)) {
   
-  # extraire le site et l'année ----
+  # extraire le site et l'année ------------------------------------------------
   site <- as.numeric(substr(strsplit(noms_fichiers[s], split = " ")[[1]][6], 2, 2))
   année <- as.numeric(substr(strsplit(noms_fichiers[s], split = " ")[[1]][7], 1, 4))
   
-  # nom du fichier ----
+  # nom du fichier -------------------------------------------------------------
   fichier <- paste0("./données/acer-web/coulée/", noms_fichiers[s])
   
-  # détermine le nombre de colonne, leurs noms et leur types ---
+  # détermine le nombre de colonne, leurs noms et leur types -------------------
   if ((site == 1 & année %in% 2022:2023) | (site == 3)) {
     noms <- c("ar", "e", "date", "heure", "coulée", "poids_p", "poids_v", 
               "glace", "brix_chau1", "brix_chau2", "brix_chau3", "brix_chal1", 
@@ -109,7 +112,12 @@ for (s in 1:length(noms_fichiers)) {
                       na = "NA",
                       skip = 2) %>% 
     # combine l'heure et la date ----
-    mutate(date = paste0(substr(date, 1, 10), substr(heure, 11, 16))) %>%
+    mutate(date = paste0(substr(date, 1, 10), 
+                         ifelse(!is.na(heure), 
+                                substr(heure, 11, 16), 
+                                " 17:00"))) %>% 
+    # TR - Michaël dit qu'il était au site entre 16h et 18h en général. J'ai mis 
+    # 17h ici. 
     select(-heure)
   
   # calcule poids de la sève (i.e., différence de poids avec et sans sève) ----
@@ -122,7 +130,7 @@ for (s in 1:length(noms_fichiers)) {
            brix_chau = mean(c_across(brix_chau1:brix_chau3), na.rm = TRUE))
   
   # détermine le brix pour estimer la densité ---
-  if (!(site == 2 & année %in% 2022:2023)){ # TR- This might also be true for 2023
+  if (!(site == 2 & année %in% 2022:2023)){
     if (!(site == 1 & année == 2022)) { # Pas de mesure de la glace pour le site 1 en 2022
       tmp_c <- tmp_c %>% 
         mutate(brix = ifelse (coulée, brix_chal, brix_chau * (1 - glace)))
@@ -132,11 +140,12 @@ for (s in 1:length(noms_fichiers)) {
     } # TR - Je devrais développer une estimation empirique du brix en fonction de la glace
   }
   
-  # estime le volume pour les années et sites où on a mesuré le poids ----
+  # estime le volume pour les années et sites où on a mesuré le poids ----------
   if((site == 1 & année == 2024) |
      (site == 2)){
     
-    # densité en fonction du brix d'après l'info-fiche d'Allard (1999) ----
+    # densité en fonction du taux de saccharose (°Brix) d'après l'info-fiche 
+    # d'Allard (1999) ----------------------------------------------------------
     tmp_c <- tmp_c %>%
       mutate(rho_s = (a_coef + (c_coef * brix)) / 
                      (1 + b_coef * brix + d_coef * brix**2),
@@ -144,25 +153,62 @@ for (s in 1:length(noms_fichiers)) {
       select(-rho_s)
   }
   
-  # ajoute le site et l'année aux données ----
+  # enlève des valeurs érronées ------------------------------------------------
+  if(site == 1 & année == 2022) {
+    
+    # enlève taux de saccharose trop élevé le 2022-03-12 due au haut taux de glace 
+    # dans les chaudières et elles ne sont pas répresentatives -------------------
+    tmp_c$brix[tmp_c$date == as_date("2022-03-12")] <- NA
+    
+    # enlève des valeurs éronnées due à l'infiltration de précipitation dans les 
+    # chaudières  --------------------
+    tmp_c$brix[tmp_c$date == as_date("2022-03-07") & 
+                 tmp_c$ar == 27] <- NA
+    tmp_c$vol_s[tmp_c$date == as_date("2022-03-07") & 
+                 tmp_c$ar == 27] <- NA
+    tmp_c$brix[tmp_c$date == as_date("2022-03-18") & 
+                 tmp_c$ar %in% c(16, 25, 27)] <- NA
+    tmp_c$vol_s[tmp_c$date == as_date("2022-03-18") & 
+                 tmp_c$ar %in% c(16, 25, 27)] <- NA
+    tmp_c$brix[tmp_c$date == as_date("2022-04-18") & 
+                 tmp_c$ar %in% c(15, 16, 27)] <- NA
+    tmp_c$vol_s[tmp_c$date == as_date("2022-04-18") & 
+                 tmp_c$ar %in% c(15, 16, 27)] <- NA
+    tmp_c$brix[tmp_c$date == as_date("2022-04-19") & 
+                 tmp_c$ar %in% c(1:3, 5:8, 14, 25, 32, 33)] <- NA
+    tmp_c$vol_s[tmp_c$date == as_date("2022-04-19") & 
+                  tmp_c$ar %in% c(1:3, 5:8, 14, 25, 32, 33)] <- NA
+    tmp_c$brix[tmp_c$date == as_date("2022-04-30") & 
+                 tmp_c$ar == 15] <- NA
+    # TR- Je devrais éventuellement imputer le volume de sève 
+      
+    # chaudière à terre
+    tmp_c$brix[tmp_c$date == as_date("2022-04-19") & 
+                 tmp_c$ar %in% c(10, 31)] <- NA
+    tmp_c$vol_s[tmp_c$date == as_date("2022-04-19") & 
+                  tmp_c$ar %in% c(10, 31)] <- NA
+  }
+  
+  # ajoute le site et l'année aux données et rénomme les commentaires ----------
   tmp_c <- tmp_c %>% mutate(site = factor(site), année = factor(année),
                             ar = factor(ar),
-                            e = factor(e)) 
+                            e = factor(e)) %>%
+    rename(commentaires_c = commentaires)
   
-  # ré-arrange les colonnes pour colliger les données ----
+  # ré-arrange les colonnes pour colliger les données --------------------------
   tmp_c <- tmp_c %>% 
-    relocate(site, année, ar, e, date, coulée, glace, brix_chau1, brix_chau2, brix_chau3, 
-             brix_chal1, brix_chal2, brix_chal3, commentaires, vol_s, poids, 
-             brix_chal, brix_chau, brix)
+    relocate(site, année, ar, e, date, coulée, glace, brix_chau1, brix_chau2, 
+             brix_chau3, brix_chal1, brix_chal2, brix_chal3, commentaires_c, 
+             vol_s, poids, brix_chal, brix_chau, brix)
   
-  # collige tous les données des coulées du réseau acer-web ----
+  # collige tous les données des coulées du réseau acer-web --------------------
   if(s == 1){
     AW_c <- tmp_c
   } else {
     AW_c <- rbind(AW_c, tmp_c)
   }
   
-  # lire les données de l'arbre ----
+  # lire les données de l'arbre ------------------------------------------------
   tmp_a <- read_excel(path = fichier, sheet = "02_arbres",
                       col_names = c("ar", "e", "nombre_e", "poids_c", "espèce",
                                     "dhp", "dhe", "hauteur_s", "orientation", 
@@ -190,14 +236,20 @@ for (s in 1:length(noms_fichiers)) {
                       na = "NA",
                       skip = 2) 
   
-  # collige tous les données des arbres du réseau acer-web ----
+  # ajoute l'année et le site aux données et renomme les commentaires ----------
+  tmp_a <- tmp_a %>% mutate(site = factor(site), année = factor(année),
+                            ar = factor(ar),
+                            e = factor(e)) %>% 
+    rename(commentaires_a = commentaires)
+  
+  # collige tous les données des arbres du réseau acer-web ---------------------
   if(s == 1){
     AW_a <- tmp_a
   } else {
     AW_a <- rbind(AW_a, tmp_a)
   }
   
-  # lire les données du site ----
+  # lire les données du site ---------------------------------------------------
   tmp_s <- read_excel(path = fichier, sheet = "03_site",
                       col_names = c("site", "site_nom", "responsable", 
                                     "courriel", "mobile", "lat", "lon", "alt", 
@@ -222,6 +274,21 @@ for (s in 1:length(noms_fichiers)) {
                       skip = 2) %>%
     select(-responsable, -courriel, -mobile)
   
+  # combiner la date et l'heure d'entaillage -----------------------------------
+  tmp_s <- tmp_s %>% 
+    mutate(date_entaillage = as_datetime(
+      paste(substr(date_entaillage, 1, 10), 
+            ifelse(!is.na(heure_entaillage),
+                   substr(heure_entaillage, 12, 16),
+                   " 12:00"), # Midi si on ne connait pas l'heure d'entaillage
+            sep = " "), 
+      format = "%Y-%m-%d %H:%M")) %>%
+    select(-heure_entaillage, -site_nom, -nombre_arbre) %>% 
+    rename(commentaires_s = commentaires)
+  
+  # ajoute l'année aux données -------------------------------------------------
+  tmp_s <- tmp_s %>% mutate(site = factor(site), année = factor(année)) 
+  
   # collige tous les données des sites du réseau acer-web ----
   if(s == 1){
     AW_s <- tmp_s
@@ -230,101 +297,96 @@ for (s in 1:length(noms_fichiers)) {
   }
 }
 
-# calculate mean sap succrose concentration (°Brix) ----------------------------
-AW_data_s <- AW_data_s %>% 
-  dplyr::mutate(sap_brix = rowMeans(dplyr::select(., sap_brix_1, sap_brix_2, sap_brix_3), 
-                             na.rm = TRUE),
-         bucket_brix = rowMeans(dplyr::select(., bucket_brix_1, bucket_brix_2, bucket_brix_3), 
-                                na.rm = TRUE))
+# ajoute une colonne du jour de l'année (jda) au données acer-web --------------
+AW_c <- AW_c %>% 
+  add_column(jda = yday(as_datetime(AW_c$date, format = "%Y-%m-%d %H:%M")))
 
-# add day of year column to AW data --------------------------------------------
-AW_data_s <- AW_data_s %>% dplyr::mutate(doy = yday(date))
+# combiner les données des sites, des arbres et des coulées --------------------
+AW <- dplyr::left_join(AW_c, AW_a, by = c("ar", "e", "année", "site")) %>%
+  dplyr::select(-brix_chal1, -brix_chal2, -brix_chal3, -brix_chau1, -brix_chau2, 
+                -brix_chau3, -poids_p, -poids_v, -pastille, -espèce_latin, 
+                -espèce) %>%
+  dplyr::left_join(AW_s, by = c("année","site"))
 
-# combine the two data sets (tree-level data and sap flow data) ----------------
-AW_data <- dplyr::left_join(
-  AW_data_s, 
-  AW_data_t, by = c("tree", "tap", "year", "site")) %>%
-  dplyr::select(-cbh, -sap_brix_1, -sap_brix_2, -sap_brix_3, -bucket_brix_1, 
-         -bucket_brix_2, -bucket_brix_3, -ice, -c_tap, 
-         -h_tap_ground, -h_tap_root_collar, -tap_time, -species, -running)
+# re-arrange les données pour faciliter la comparaison -------------------------
+AW <- AW %>% 
+  dplyr::select(-poids_c) %>%
+  dplyr::relocate(site, ar, e, date, année, jda, lat, lon, 
+                  alt, espèce_abbr, coulée, glace, vol_s, poids, brix_chal, 
+                  brix_chau, brix, nombre_e, orientation, hauteur_s, hauteur_t, 
+                  profondeur, d_e, dhp, dhe, écorce, date_entaillage, 
+                  date_désentaillage, commentaires_c, commentaires_a, 
+                  commentaires_s) %>%
+  mutate(date_entaillage = as_date(date_entaillage),
+         date_désentaillage = as_date(date_désentaillage))
 
-# re-arrange AW data for ease of comparison ------------------------------------
-AW_data <- AW_data %>% 
-  dplyr::relocate(site, tree, tap, date, time, datetime, year, doy, lat, lon, 
-                  alti, spp, sap_volume, sap_brix, bucket_brix, n_taps, 
-                  tap_bearing, tap_height, tap_depth, tap_width, dbh)
-
-# remove outliers on 2022-03-12 due to most sap being frozen and 2022-03-14, as 
-# there was only very little sap (i.e., 50 or 100 ml with one tree at 300 ml) --
-AW_data <- AW_data %>% 
-  dplyr::filter(!(site== "1" & date %in% as_date(c("2022-03-12","2022-03-14"))))
-
-# remove outliers due to rain water getting into the bucket --------------------
-AW_data <- AW_data %>% 
-  dplyr::filter(
-    !(site == "1" & date == as_date("2022-03-07") & tree == 27),
-    !(site == "1" & date == as_date("2022-03-18") & tree %in% c(16, 25, 27)),
-    !(site == "1" & date == as_date("2022-04-18") & tree %in% c(15, 16, 27)),
-    !(site == "1" & date == as_date("2022-04-19") & tree %in% c(1:3, 5:8, 14, 25, 32, 33)),
-    !(site == "1" & date == as_date("2022-04-30") & tree %in% c(15)))
-
-# load Harvard Forest data -----------------------------------------------------
+# charger les données d'Harvard Forest -----------------------------------------
 #HF_data_t1 <- read_csv("./data/HF/hf285-01-maple-tap.csv", col_types = cols())
 #HF_data_s1 <- read_csv("./data/HF/hf285-02-maple-sap.csv", col_types = cols())
-# use above link once the data has been updated on the Archive
-HF_data_t <- readr::read_csv("./data/HF/HFmaple.tapping.2012_2022.csv", 
-                      col_types = readr::cols()) %>% 
+# utilise les lien ci-dessus une fois que les archives ont été mise à jour
+HF_a <- readr::read_csv("./données/HF/HFmaple.tapping.2012_2022.csv",
+                        col_types = readr::cols()) %>% 
   dplyr::mutate(date = lubridate::as_date(date, format = "%m/%d/%Y"))
-HF_data_s <- readr::read_csv("./data/HF/HFmaple.sap.2012_2022.csv", 
-                      col_types = readr::cols()) %>% 
+HF_c <- readr::read_csv("./données/HF/HFmaple.sap.2012_2022.csv", 
+                        col_types = readr::cols()) %>% 
   dplyr::mutate(date = lubridate::as_date(date, format = "%m/%d/%Y"))
 
-# change "HFR", which stands for Harvard Forest red maple to "AR", which stands 
-# for Acer rurbrum, in the tree id for consistency of the two HF data sets -----
-HF_data_t <- HF_data_t %>% dplyr::mutate(
-  tree = ifelse(substr(tree,1,3) == "HFR", 
-                paste0("AR",substr(tree,4,nchar(tree))),
-                tree))
+# changer "HFR", qui signifie "Harvard Forest red maple", pour "AR", qui 
+# signifiew "Acer rurbrum", pour assurer la consitence des jeux de données -----
+HF_a <- HF_a %>% dplyr::mutate(
+  ar = ifelse(substr(tree, 1, 3) == "HFR", 
+              paste0("AR", substr(tree, 4, nchar(tree))),
+              tree))
 
-# add rows to tibble with data for 2015, which was missing ---------------------
-# According to sap flow data trees AR1, AR2, AR3, AR4, AR6, AR7, AR9, AR10, 
-# HF35, and HF40 only have one tap ---------------------------------------------
-HF_data_t <- HF_data_t %>% dplyr::add_row(
-  date = as_date("2015-03-09"), # tapping date in 2015 according to Josh
-  tree = c(rep(c("HF1", "HF4", "HF5", "HF6", "HF7", "HF9", 
-                 "HF10", "HF12", "HF13", "HF16", "HF21", 
-                 "HF22", "HF23", "HF33",  "HF38",  "HF41", 
-                 "HF43", "AR5", "AR8"), each = 2), # have two taps according to sap flow file
-                 c("HF35","HF40","AR1", "AR2", "AR3", "AR4","AR6", 
-                 "AR7","AR9", "AR10")), # have one tap according to sap flow file
-  tap = c(rep(c("A", "B"), 19), rep("A", 10)),
-  species = c(rep("ACSA", 17*2), rep("ACRU", 2*2), 
-              rep("ACSA", 2), rep("ACRU", 8)),
-  dbh = NA,
-  tap.bearing = NA,
-  tap.height = NA)
+# renomme les colonnes ---------------------------------------------------------
+HF_a <- HF_a %>% rename(e = tap, espèce_abbr = species, dhp = dbh, 
+                        orientation = tap.bearing, hauteur_s = tap.height) %>% 
+  select(-tree)
+HF_c <- HF_c %>% rename(e = tap, ar = tree, heure = time, espèce_abbr = species, 
+                        brix_chal = sugar, brix = sugar, poids = sap.wt) 
 
-# add year column to the tree-specific data ------------------------------------
-HF_data_t <- HF_data_t %>% dplyr::mutate(year = factor(lubridate::year(date)))
+# ajoute des lignes pour les données de 2015, qui manquait ---------------------
+# D'après les données de flux de sève, les arbres AR1, AR2, AR3, AR4, AR6, AR7, 
+# AR9, AR10, HF35, et HF40 ont seulement une entaille --------------------------
+HF_a <- HF_a %>% dplyr::add_row(
+  date = as_date("2015-03-09"), # date d'entaillage en 2015 d'après Josh
+  ar = c(rep(c("HF1", "HF4", "HF5", "HF6", "HF7", "HF9", "HF10", "HF12", "HF13", 
+               "HF16", "HF21", "HF22", "HF23", "HF33",  "HF38",  "HF41", "HF43", 
+               "AR5", "AR8"), each = 2), # ont deux entailles d'après les données de flux de sève
+         c("HF35","HF40","AR1", "AR2", "AR3", "AR4","AR6", "AR7","AR9", 
+           "AR10")), # ont une entaille d'après les données de flux de sève
+  e = c(rep(c("A", "B"), 19), rep("A", 10)),
+  espèce_abbr = c(rep("ACSA", 17*2), rep("ACRU", 2*2), rep("ACSA", 2), 
+                  rep("ACRU", 8)),
+  dhp = NA,
+  orientation = NA,
+  hauteur_s = NA)
 
-# add a column with number of taps ---------------------------------------------
-HF_data_t <- HF_data_t %>% dplyr::group_by(tree, year) %>% 
-  dplyr::mutate(n_taps = dplyr::case_when(
-  "C" %in% tap ~ 3,
-  "B" %in% tap ~ 2,
-  "A" %in% tap ~ 1,
+# ajoute l'année de mesures aux les données spécifique à l'arbre ---------------
+HF_a <- HF_a %>% dplyr::mutate(année = factor(lubridate::year(date)))
+
+# ajoute une colonne avec le nombre d'entaille de l'arbre ----------------------
+HF_a <- HF_a %>% dplyr::group_by(ar, année) %>% 
+  dplyr::mutate(nombre_e = dplyr::case_when(
+  "C" %in% e ~ 3,
+  "B" %in% e ~ 2,
+  "A" %in% e ~ 1,
 )) %>% dplyr::ungroup()
 
-# plot dbh with simple linear interpolation ------------------------------------
-PLOT <- FALSE
-for (t in unique(HF_data_t$tree)) {
-  con <- HF_data_t$tree == t
-  if(PLOT){
-    plot(x = HF_data_t$date[con], 
-         y = HF_data_t$dbh[con],
-         xlab = "date", ylab = "dbh (cm)", 
-         xlim = c(as_date("2012-01-01"), as_date("2023-01-01")), ylim = c(20,100),
-         axes = FALSE, pch = 19, col = "#91b9a4", main = t)
+# interpolation du diamètre à hauteur de pointrine avec une simple regression 
+# linéaire ---------------------------------------------------------------------
+PLOT <- TRUE
+for (ar in unique(HF_a$ar)) {
+  con <- HF_a$ar == ar
+  if (PLOT){
+    par(mar = c(5, 5, 5, 1))
+    plot(x = HF_a$date[con], 
+         y = HF_a$dhp[con],
+         xlab = "date", ylab = "dhp (cm)", 
+         xlim = c(as_date("2012-01-01"), as_date("2023-01-01")), 
+         ylim = c(min(HF_a$dhp[con], na.rm = TRUE) - 10, 
+                  max(HF_a$dhp[con], na.rm = TRUE) + 10),
+         axes = FALSE, pch = 19, col = "#91b9a4", main = ar)
     axis(side = 1, 
          at = c(as_date("2012-01-01"), as_date("2013-01-01"), as_date("2014-01-01"), 
                 as_date("2015-01-01"), as_date("2016-01-01"), as_date("2017-01-01"), 
@@ -333,108 +395,117 @@ for (t in unique(HF_data_t$tree)) {
          labels = 2012:2023)
     axis(side = 2, las = 1)
   }
-  if (length(HF_data_t$date[con]) > 1) {
-    fit <- lm(dbh ~ date, data = HF_data_t[con, ])
+  if (length(HF_a$date[con]) > 1) {
+    fit <- lm(dhp ~ date, data = HF_a[con, ])
     if (PLOT) abline(fit, lty = 2, col = "#91b9a4")
   }
   # print coefficients ---------------------------------------------------------
   #print (fit$coefficients)
   
-  # get years that this tree was sampled ---------------------------------------
-  yrs <- unique(lubridate::year(HF_data_s$date[HF_data_s$tree == t]))
+  # extrait les années pour lesquelles nous avons des données pour l'arbre -----
+  années <- unique(lubridate::year(HF_c$date[HF_c$ar == ar]))
   
-  # remove years for which we have actual dbh-meansurements --------------------
-  dupli_yrs <- HF_data_t %>% 
-    dplyr::filter(tree == t & !is.na(dbh)) %>% 
-    dplyr::select(year) %>% unlist() %>% unique()
-  dupli_yrs <- as.numeric(levels(dupli_yrs))[dupli_yrs] # extract integer values for duplicate years
-  dupli_yrs <- dupli_yrs[dupli_yrs %in% yrs] # remove years for which there is no sapflow data
-  yrs <- c(yrs, dupli_yrs) # concatenate years and duplicates
-  yrs <- yrs[!(yrs %in% yrs[duplicated(yrs)])]
+  # enlève les années pour lesquelles nous avons des mesures du dhp ------------
+  années_dupli <- HF_a %>% 
+    dplyr::filter(ar == ar & !is.na(dhp)) %>% 
+    dplyr::select(année) %>% unlist() %>% unique()
+  années_dupli <- as.numeric(levels(années_dupli))[années_dupli] # extraire les indices des années dupliquées
+  années_dupli <- années_dupli[années_dupli %in% années] # enlève les années pour lesquelles nous n'avons pas de flux de sève
+  années <- c(années, années_dupli) # enchaîne les années et les années dupliquées
+  années <- années[!(années %in% années[duplicated(années)])]
   
-  # create dates for which we interpolate the dbh ------------------------------ 
-  if (length(yrs) > 0) {
-    dates <- tibble::tibble (date = as_date(paste(yrs,"-03-01"))) 
-    # choose the first of march here, but dbh should not vary in winter anyway
+  # création des dates pour l'interpolation du DHP -----------------------------
+  if (length(années) > 0) {
+    dates <- tibble::tibble(date = as_date(paste(années,"-03-01"))) 
+    # disons le premier mars, car le DHP ne devrait pas croître en hiver.
   
-    # predict dbh on these dates -----------------------------------------------
-    for (y in yrs) {
-      HF_data_t$dbh[con & HF_data_t$year == y] <- 
-        predict(fit, dates[lubridate::year(dates$date) == y, ])  
+    # interpoler le DHP à ces dates -----------------------------------------------
+    for (a in années) {
+      HF_a$dhp[con & HF_a$année == a] <- 
+        predict(fit, dates[lubridate::year(dates$date) == a, ])  
       # plot the points to check that this works
       if (PLOT) {
-        points(x = HF_data_t$date[con & HF_data_t$year == y],
-               y = HF_data_t$dbh[con & HF_data_t$year == y], 
+        points(x = HF_a$date[con & HF_a$année == a],
+               y = HF_a$dhp[con & HF_a$année == a], 
                pch = 1 , lwd = 1 , col = "#91b9a4")
       }
     }
   }
 }
 
-# remove temporary variables ---------------------------------------------------
-rm(dates, fit, dupli_yrs)
+# TR - Je dois remesurer le DHP des arbres en 2024 pour assurer que les 
+#      regressions linéaires ont de l'allure. Pour certains arbres, nous avons 
+#      seulement deux dhp et la relation est negative ou trop à pic.
+# supprimer les variables temporaires ------------------------------------------
+rm(dates, fit, années_dupli)
 
-# add datetime column ----------------------------------------------------------
-HF_data_s <- HF_data_s %>%  
+# ajouter la date et le temps --------------------------------------------------
+HF_c <- HF_c %>%  
+  dplyr::mutate(date = ifelse(is.na(heure), 
+                              paste(date, "16:00:00"),
+                              paste(date, heure)))
+
+# ajoute des colonnes pour le jour de l'année (jda) et le volume de sève (vol_s)
+# calcul la densité de la sève en fonction du brix pour convertir le poids 
+# en volume. J'utilise l'équation de l'info-fiche de Allard (1999) -------------
+HF_c <- HF_c %>% 
   dplyr::mutate(
-    datetime = as_datetime (paste(date, time), format = "%Y-%m-%d %H:%M", 
-                            tz = "EST"),
-    time = as.character(time))
+    jda = lubridate::yday(date),
+    année = factor(lubridate::year(date)),
+    rho_s = (a_coef + (c_coef * brix)) / 
+      (1 + b_coef * brix + d_coef * brix**2),
+    vol_s = poids * rho_s * 1e3,
+    site = "HF")
 
-# add day of year (doy) and sap_volume columns ---------------------------------
-# density of water is 997.77 kg m-3 and succrose increases the density of the 
-# solution. At 2% succrose content we can use a conversion factor of 1.0 L / kg.
-HF_data_s <- HF_data_s %>% 
-  dplyr::mutate(
-    doy = lubridate::yday(date),
-    year = factor(lubridate::year(date)),
-    sap_volume = sap.wt * 1000,
-    site = "HF",
-    sap_brix = sugar) %>%
-  dplyr::select(-sap.wt,-sugar)
-
-# combine the two data sets ----------------------------------------------------
-HF_data <- dplyr::left_join(HF_data_s, HF_data_t, by = c("tree", "tap", "year")) %>% 
-  dplyr::select(-species.y) %>% 
+# combiner les deux jeux de données (i.e., arbre et coulée) --------------------
+HF <- dplyr::left_join(HF_c, HF_a, by = c("ar", "e", "année", "espèce_abbr")) %>% 
   dplyr::rename(date = "date.x",
-         tap_date = "date.y",
-         spp = "species.x",
-         tap_height = "tap.height",
-         tap_bearing = "tap.bearing") %>% 
+         date_entaillage = "date.y") %>% 
   tibble::add_column(
-    tap_depth = 5.08, # 2 inches
-    tap_width = 0.79375, # 5/16" drill bit
+    profondeur = 5.08, # 2 inches
+    d_e = 0.79375, # 5/16" drill bit
     lat = 42.53321,
     lon = -72.19090,
-    alti = 338)
+    alt = 338)
 
-# determine tap_removal as last date of data collection ------------------------
-# it was the day of last sap collection according to Josh
-temp <- HF_data %>% dplyr::group_by(tree, tap, year) %>% 
-  dplyr::summarise(tap_removal = max(date), .groups = "drop")
+# d'après Josh la dernière journée de collecte de données était également la 
+# date de désentaillage --------------------------------------------------------
+temp <- HF %>% dplyr::group_by(ar, e, année) %>% 
+  dplyr::summarise(date_désentaillage = max(date), .groups = "drop") %>%
+  dplyr::mutate(date_désentaillage = as_date(date_désentaillage))
 
-# add tap removal to tibble ----------------------------------------------------
-HF_data <- dplyr::left_join(HF_data, temp, by = c("tree", "tap", "year"))
+# ajouter la date de désentaillage au données ----------------------------------
+HF <- dplyr::left_join(HF, temp, by = c("ar", "e", "année"))
 rm(temp)
 
-# Correct typo in data (22 to 2.2) ---------------------------------------------
-HF_data$sap_brix[which(HF_data$tree == "HF33" & 
-                         HF_data$date == as_date("2018-03-24") &
-                         HF_data$tap == "A")] <- 2.2
+# Corriger des fautes d'orthographe dans les données (i.e., 22 to 2.2) ---------
+HF$brix[which(HF$ar == "HF33" & 
+              HF$date == as_datetime("2018-03-24 16:00:00 UTC") &
+              HF$e == "A")] <- 2.2
 
-# re-arrange HF data for ease of comparison ------------------------------------
-HF_data <- HF_data %>% 
-  dplyr::relocate(site, tree, tap, date, time, datetime, year, doy, lat, lon, 
-                 alti, spp, sap_volume, sap_brix, spp, n_taps, tap_bearing, 
-                 tap_height, tap_depth, tap_width, tap_date, tap_removal, dbh)
+# Ajoute les colonnes manquantes -----------------------------------------------
+HF <- HF %>% mutate(coulée = NA, glace = NA, brix_chal = brix, brix_chau = NA,
+                    hauteur_t = NA, dhe = NA, écorce = NA, commentaires_c = NA, 
+                    commentaires_a = NA, commentaires_s = NA)
+
+# re-arranger les données de HF pour faciliter la comparaison ------------------
+HF <- HF %>% 
+  dplyr::relocate(site, ar, e, date, année, jda, lat, lon, alt, espèce_abbr, 
+                  coulée, glace, vol_s, poids, brix_chal, brix_chau, brix, 
+                  nombre_e, orientation, hauteur_s, hauteur_t, profondeur, d_e, 
+                  dhp, dhe, écorce, date_entaillage, date_désentaillage, 
+                  commentaires_c, commentaires_a, commentaires_s) %>% 
+  dplyr::select(-heure)
 
 # compile different data sets---------------------------------------------------
-sap_data <- dplyr::full_join(AW_data, HF_data, 
-                      by = c("site", "tree", "tap", "date", "time", "datetime", 
-                             "year", "doy", "lat", "lon", "alti", "spp", 
-                             "sap_volume", "sap_brix", "n_taps", "tap_bearing", 
-                             "tap_height", "tap_depth", "tap_width", "tap_date", 
-                             "tap_removal", "dbh")) 
+d <- dplyr::full_join(AW, HF, 
+                      by = c("site", "ar", "e", "date", "année", "jda", "lat", 
+                             "lon", "alt", "espèce_abbr", "coulée", "glace", 
+                             "vol_s", "poids", "brix_chal", "brix_chau", "brix", 
+                             "nombre_e", "orientation", "hauteur_s", 
+                             "hauteur_t", "profondeur", "d_e", "dhp", "dhe", 
+                             "écorce", "date_entaillage", "date_désentaillage", 
+                             "commentaires_c", "commentaires_a", "commentaires_s")) 
 
 # read AcerNet data ------------------------------------------------------------
 # N.B.: This data does not include tree sizes or any metadata. It is only sap 
