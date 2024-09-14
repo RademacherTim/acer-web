@@ -2,10 +2,40 @@
 # script to download and wrangle sugar season data sap data
 #-------------------------------------------------------------------------------
 
-# tasks ------------------------------------------------------------------------
+# Données à ajouter ------------------------------------------------------------
 # TR - Add data from Yvon Grenier, if I can get my hands on it.
 # TR - Add data from DRF one day
 # TR - Additional data from other ACERnet sites (still waiting to hear from Bill)
+# TR - Ajouter les données de Harvard Forest de 2024
+
+# Maîtrise Michaël :
+# 1) DHP
+# 1) DHP annuelle et coulée totale annuelle
+# 2) DHP annuelle et taux de sucre moyenne
+# 3) Croissance annuelle (largeur de cerne et incrément de surface terrière) 
+#    et coulée totale annuelle :
+#       - L'année de croissance avant la coulée et la coulée totale
+#       - 5, 10, 15, 20, 30, 40 et 50 ans de croissance et la coulée totale
+#
+# 4) MSCR :
+# 4.1) Est-ce que le MSCR est un bon proxy pour la vigueur mesuré comme 
+# croissance (largeur de cerne et incrément de surface terrière)?
+#       - 5, 10, 15, 20, 30, 40 et 50 ans de croissance et la coulée totale
+# 4.2) Est-ce que les catégories du MCSR sur (a) la coulée totale et (b) le 
+# taux de sucre moyenne?
+# 4.3) S'il y a un impact de certains défaults, est-ce que la distance du 
+# défault module l'effet du défault? 
+#
+# 5) Climat et rendement annuelle et taux de sucre :
+# 5.1) Nombre évènement de gel-dégel et volume de sève totale de la saison
+# 5.2) Somme d'écart de température pour les évènement de gel-dégel et volume de 
+# sève totale de la saison
+# 5.3) Température minimale, moyenne et maximale de Décembre-Janvier-Février et 
+# taux de sucre moyenne de la saison
+# 5.4) Dégrée-jours et fin de la saison (i.e., date de dernière coulée)
+# 5.5) Température mensuelle moyenne de Février, Mars et Avril et volume de sève mensuelle et taux de sucre mensuelle
+# 5.6) Température et précipitation pendant la saison de croissance (Mai à Octobre) et taux de sucre moyennes
+# 5.7) Est-ce qu'il y a une relation entre rendements annuelle et taux de sucre annuelle?
 
 # load dependencies ------------------------------------------------------------
 if (!existsFunction("%>%")) library ("tidyverse")
@@ -60,7 +90,7 @@ for (s in 1:length(noms_fichiers)) {
         commentaires = "text",
         vol_s = "numeric"
       )
-  } else if (site == 2 & année %in% 2022:2023) {
+  } else if (site == 2 & année %in% 2022:2024) {
     noms <- c("ar", "e", "date", "heure", "coulée", "poids_p", "poids_v", 
               "glace", "brix_chau1", "brix_chau2", "brix_chau3", "brix_chal1", 
               "brix_chal2", "brix_chal3", "commentaires", "brix")
@@ -321,7 +351,7 @@ AW <- AW %>%
          date_désentaillage = as_date(date_désentaillage))
 
 # charger les données d'Harvard Forest -----------------------------------------
-#HF_data_t1 <- read_csv("./data/HF/hf285-01-maple-tap.csv", col_types = cols())
+#HF_data_t1 <- read_csv("./données/HF/hf285-01-maple-tap_2.csv", col_types = cols())
 #HF_data_s1 <- read_csv("./data/HF/hf285-02-maple-sap.csv", col_types = cols())
 # utilise les lien ci-dessus une fois que les archives ont été mise à jour
 HF_a <- readr::read_csv("./données/HF/HFmaple.tapping.2012_2022.csv",
@@ -373,8 +403,7 @@ HF_a <- HF_a %>% dplyr::group_by(ar, année) %>%
   "A" %in% e ~ 1,
 )) %>% dplyr::ungroup()
 
-# interpolation du diamètre à hauteur de pointrine avec une simple regression 
-# linéaire ---------------------------------------------------------------------
+# interpolation du diamètre à hauteur de poitrine avec regression linéaire -----
 PLOT <- TRUE
 for (ar in unique(HF_a$ar)) {
   con <- HF_a$ar == ar
